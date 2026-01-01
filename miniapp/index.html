@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>QuantiProBot</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <span class="logo-icon">📊</span>
+                    <span class="logo-text">QuantiProBot</span>
+                </div>
+                <div class="user-info" id="userInfo"></div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Home Screen -->
+            <section id="homeScreen" class="screen active">
+                <div class="welcome-card">
+                    <h1>Welcome to QuantiProBot</h1>
+                    <p>Your AI-powered statistical analysis assistant</p>
+                </div>
+                
+                <div class="action-grid">
+                    <button class="action-card" onclick="showScreen('uploadScreen')">
+                        <span class="action-icon">📊</span>
+                        <span class="action-title">Analyse Data</span>
+                        <span class="action-desc">Upload and analyze your dataset</span>
+                    </button>
+                    
+                    <button class="action-card" onclick="showScreen('samplingScreen')">
+                        <span class="action-icon">🔢</span>
+                        <span class="action-title">Sample Size</span>
+                        <span class="action-desc">Calculate required sample size</span>
+                    </button>
+                    
+                    <button class="action-card" onclick="loadProjects()">
+                        <span class="action-icon">📁</span>
+                        <span class="action-title">My Projects</span>
+                        <span class="action-desc">View saved analyses</span>
+                    </button>
+                    
+                    <button class="action-card" onclick="showScreen('aiChatScreen')">
+                        <span class="action-icon">💬</span>
+                        <span class="action-title">AI Chat</span>
+                        <span class="action-desc">Ask statistical questions</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Upload Screen -->
+            <section id="uploadScreen" class="screen">
+                <div class="screen-header">
+                    <button class="back-btn" onclick="showScreen('homeScreen')">← Back</button>
+                    <h2>Upload Data</h2>
+                </div>
+                
+                <div class="upload-zone" id="uploadZone">
+                    <input type="file" id="fileInput" accept=".csv,.xlsx,.xls,.sav" hidden>
+                    <div class="upload-content" onclick="document.getElementById('fileInput').click()">
+                        <span class="upload-icon">📄</span>
+                        <p>Click to upload or drag & drop</p>
+                        <span class="upload-formats">CSV, Excel, SPSS</span>
+                    </div>
+                </div>
+                
+                <div id="fileInfo" class="file-info hidden"></div>
+            </section>
+
+            <!-- Analysis Screen -->
+            <section id="analysisScreen" class="screen">
+                <div class="screen-header">
+                    <button class="back-btn" onclick="showScreen('uploadScreen')">← Back</button>
+                    <h2>Select Analysis</h2>
+                </div>
+                
+                <div class="analysis-grid">
+                    <button class="analysis-card" onclick="runAnalysis('descriptive')">
+                        <span class="card-icon">📉</span>
+                        <span class="card-title">Descriptive Stats</span>
+                    </button>
+                    
+                    <button class="analysis-card" onclick="showVariableSelect('correlation')">
+                        <span class="card-icon">🔗</span>
+                        <span class="card-title">Correlation</span>
+                    </button>
+                    
+                    <button class="analysis-card" onclick="showTestOptions()">
+                        <span class="card-icon">🆚</span>
+                        <span class="card-title">Hypothesis Tests</span>
+                    </button>
+                    
+                    <button class="analysis-card" onclick="showVariableSelect('regression')">
+                        <span class="card-icon">📈</span>
+                        <span class="card-title">Regression</span>
+                    </button>
+                    
+                    <button class="analysis-card" onclick="showVariableSelect('crosstab')">
+                        <span class="card-icon">🎲</span>
+                        <span class="card-title">Crosstab</span>
+                    </button>
+                    
+                    <button class="analysis-card" onclick="showVisualOptions()">
+                        <span class="card-icon">🎨</span>
+                        <span class="card-title">Visualizations</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Variable Selection Screen -->
+            <section id="variableScreen" class="screen">
+                <div class="screen-header">
+                    <button class="back-btn" onclick="showScreen('analysisScreen')">← Back</button>
+                    <h2 id="variableTitle">Select Variables</h2>
+                </div>
+                
+                <div class="variable-list" id="variableList"></div>
+                
+                <button class="primary-btn" id="runAnalysisBtn" onclick="executeAnalysis()">
+                    Run Analysis
+                </button>
+            </section>
+
+            <!-- Results Screen -->
+            <section id="resultsScreen" class="screen">
+                <div class="screen-header">
+                    <button class="back-btn" onclick="showScreen('analysisScreen')">← Back</button>
+                    <h2>Results</h2>
+                </div>
+                
+                <div class="results-container" id="resultsContainer"></div>
+                
+                <div class="results-actions">
+                    <button class="secondary-btn" onclick="saveProject()">💾 Save Project</button>
+                    <button class="secondary-btn" onclick="exportResults()">📤 Export</button>
+                </div>
+            </section>
+
+            <!-- Sampling Screen -->
+            <section id="samplingScreen" class="screen">
+                <div class="screen-header">
+                    <button class="back-btn" onclick="showScreen('homeScreen')">← Back</button>
+                    <h2>Sample Size Calculator</h2>
+                </div>
+                
+                <div class="form-group">
+                    <label>Confidence Level</label>
+                    <select id="confidenceLevel" class="form-select">
+                        <option value="0.90">90%</option>
+                        <option value="0.95" selected>95%</option>
+                        <option value="0.99">99%</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Margin of Error</label>
+                    <select id="marginError" class="form-select">
+                        <option value="0.01">1%</option>
+                        <option value="0.03">3%</option>
+                        <option value="0.05" selected>5%</option>
+                        <option value="0.10">10%</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Population Size (optional)</label>
+                    <input type="number" id="populationSize" class="form-input" placeholder="Leave blank if unknown">
+                </div>
+                
+                <button class="primary-btn" onclick="calculateSampleSize()">Calculate</button>
+                
+                <div id="samplingResult" class="result-card hidden"></div>
+            </section>
+
+            <!-- Projects Screen -->
+            <section id="projectsScreen" class="screen">
+                <div class="screen-header">
+                    <button class="back-btn" onclick="showScreen('homeScreen')">← Back</button>
+                    <h2>My Projects</h2>
+                </div>
+                
+                <div class="projects-list" id="projectsList"></div>
+            </section>
+
+            <!-- AI Chat Screen -->
+            <section id="aiChatScreen" class="screen">
+                <div class="screen-header">
+                    <button class="back-btn" onclick="showScreen('homeScreen')">← Back</button>
+                    <h2>AI Assistant</h2>
+                </div>
+                
+                <div class="chat-container" id="chatContainer"></div>
+                
+                <div class="chat-input-area">
+                    <input type="text" id="chatInput" class="chat-input" placeholder="Ask a question...">
+                    <button class="send-btn" onclick="sendChatMessage()">→</button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay" class="loading-overlay hidden">
+            <div class="loader"></div>
+            <p id="loadingText">Processing...</p>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
