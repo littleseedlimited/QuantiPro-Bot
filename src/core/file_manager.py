@@ -2,7 +2,7 @@ import pandas as pd
 import json
 import os
 import logging
-from typing import Tuple, Dict, Any, Optional
+from typing import Tuple, Dict, Any, Optional, List
 
 try:
     import pyreadstat
