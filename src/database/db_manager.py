@@ -14,8 +14,48 @@ class DatabaseManager:
             cls._instance.engine = create_engine(db_url)
             Base.metadata.create_all(cls._instance.engine)
             cls._instance.Session = sessionmaker(bind=cls._instance.engine)
+            cls._instance.ensure_schema_updates()
             cls._instance.seed_plans()
         return cls._instance
+
+    def ensure_schema_updates(self):
+        """Manually add missing columns for existing databases."""
+        from sqlalchemy import text
+        session = self.get_session()
+        try:
+            # Check for is_banned check
+            try:
+                session.execute(text("SELECT is_banned FROM users LIMIT 1"))
+            except Exception:
+                print("DEBUG: Adding missing column 'is_banned' to users table")
+                session.rollback()
+                # Determine DB type (SQLite vs Postgres)
+                # SQLite doesn't support IF NOT EXISTS in ADD COLUMN usually, but let's try standard SQL
+                # For Postgres (Render), we can use ALTER TABLE
+                try:
+                    session.execute(text("ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT FALSE"))
+                    session.commit()
+                except Exception as e:
+                    print(f"DEBUG: Failed to add is_banned: {e}")
+                    session.rollback()
+
+            # Check for is_verified
+            try:
+                session.execute(text("SELECT is_verified FROM users LIMIT 1"))
+            except Exception:
+                print("DEBUG: Adding missing column 'is_verified' to users table")
+                session.rollback()
+                try:
+                    session.execute(text("ALTER TABLE users ADD COLUMN is_verified BOOLEAN DEFAULT FALSE"))
+                    session.commit()
+                except Exception as e:
+                    print(f"DEBUG: Failed to add is_verified: {e}")
+                    session.rollback()
+
+        except Exception as e:
+            print(f"DEBUG: Schema update error: {e}")
+        finally:
+            session.close()
 
     def get_session(self):
         return self.Session()
