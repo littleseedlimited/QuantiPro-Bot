@@ -1,0 +1,16 @@
+app = "quantiprobot"
+primary_region = "ams" # Change to user's preferred region if needed
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  # Fallback variables (Secrets should be set via fly secrets set)
+  DATABASE_URL = "sqlite:////app/db/quantiprobot.db"
+
+[[mounts]]
+  source = "bot_data"
+  destination = "/app/db"
+
+# No HTTP services needed for a standalone Telegram bot
+# unless we add a health check or webhook

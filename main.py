@@ -23,7 +23,7 @@ from src.bot.constants import (
     MODE_SELECT, METHOD_SELECT, CI_SELECT, PARAM_INPUT, STUDY_TYPE_SELECT, POPULATION_CHECK,
     S_NAME, S_EMAIL, S_PHONE, S_COUNTRY,
     TEST_SELECT, VAR_SELECT_GROUP, VAR_SELECT_TEST, ANOVA_SELECT_FACTOR, ANOVA_SELECT_DV, RELIABILITY_SELECT,
-    GUIDE_CONFIRM
+    GUIDE_CONFIRM, S_ID
 )
 from src.bot.handlers import (
     start_handler, file_handler, action_handler, plans_handler,
@@ -33,6 +33,10 @@ from src.bot.handlers import (
     save_project_handler, payment_callback_handler, pre_checkout_handler, successful_payment_handler,
     help_handler, join_command_handler, ping_handler,
     cancel
+)
+from src.bot.admin_commands import (
+    admin_users_command, admin_ban_command, admin_unban_command, 
+    admin_delete_command, admin_upgrade_command
 )
 
 from src.bot.interview import InterviewManager
@@ -156,6 +160,7 @@ def main():
             ],
             ACTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, action_handler)],
             # Signup States
+            S_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, SignupManager.handle_id)],
             S_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, SignupManager.handle_name)],
             S_EMAIL: [MessageHandler(filters.TEXT & ~filters.COMMAND, SignupManager.handle_email)],
             S_PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, SignupManager.handle_phone)],
@@ -213,6 +218,13 @@ def main():
     application.add_handler(CommandHandler('signup', signup_command_handler))
     application.add_handler(CommandHandler('history', history_handler))
     application.add_handler(CommandHandler('admin', admin_handler))
+    # Admin Management Commands
+    application.add_handler(CommandHandler('users', admin_users_command))
+    application.add_handler(CommandHandler('ban', admin_ban_command))
+    application.add_handler(CommandHandler('unban', admin_unban_command))
+    application.add_handler(CommandHandler('delete', admin_delete_command))
+    application.add_handler(CommandHandler('upgrade', admin_upgrade_command))
+    
     application.add_handler(CommandHandler('save', save_and_exit_handler))
     application.add_handler(CommandHandler('help', help_handler))
     application.add_handler(CommandHandler('join', join_command_handler))

@@ -4,7 +4,7 @@ from src.database.db_manager import DatabaseManager
 from src.utils.logger import logger
 
 from src.bot.constants import (
-    S_NAME, S_EMAIL, S_PHONE, S_COUNTRY
+    S_ID, S_NAME, S_EMAIL, S_PHONE, S_COUNTRY
 )
 
 class SignupManager:
@@ -15,12 +15,39 @@ class SignupManager:
     @staticmethod
     async def start_signup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
-            "📝 **Registration Required**\n\n"
-            "To use QuantiProBot, please complete a quick signup.\n"
-            "First, what is your **Full Name**?",
+            "📝 **Verification Required**\n\n"
+            "To use QuantiProBot, you must verify your identity.\n"
+            "Please enter your **Telegram ID** (numeric).\n\n"
+            "ℹ️ *How to find it?*\n"
+            "1. Go to your Settings > Profile\n"
+            "2. Or forward a message to @userinfobot",
             parse_mode='Markdown',
             reply_markup=ReplyKeyboardRemove()
         )
+        return S_ID
+
+    @staticmethod
+    async def handle_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_input = update.message.text.strip()
+        actual_id = update.effective_user.id
+        
+        # Verify if input matches actual ID (or at least is numeric and same as current user)
+        # User requirement is "MUST add their Telegram Id". We can be strict or helpful.
+        # Let's check if it's numeric first.
+        if not user_input.isdigit():
+             await update.message.reply_text("⚠️ Invalid ID. Please enter numeric digits only.")
+             return S_ID
+
+        if str(user_input) != str(actual_id):
+            await update.message.reply_text(
+                f"⚠️ The ID you entered ({user_input}) does not match your current account ID ({actual_id}).\n"
+                "Please enter the correct ID found in your settings.",
+                parse_mode='Markdown'
+            )
+            return S_ID
+
+        context.user_data['reg_id'] = user_input
+        await update.message.reply_text("✅ ID Verified! Now, what is your **Full Name**?")
         return S_NAME
 
     @staticmethod

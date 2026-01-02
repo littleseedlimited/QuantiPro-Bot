@@ -25,6 +25,7 @@ CI_SELECT = 34
 PARAM_INPUT = 35
 
 # Signup states
+S_ID = 49
 S_NAME = 50
 S_EMAIL = 51
 S_PHONE = 52

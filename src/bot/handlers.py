@@ -140,19 +140,36 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db = DatabaseManager()
         user = db.get_user(user_id)
 
-        # Super Admin Check
+        # Super Admin Check (Username based + Env ID)
+        current_username = update.effective_user.username
         admin_id = os.getenv("SUPER_ADMIN_ID")
-        if admin_id and str(user_id) == str(admin_id):
+        
+        is_super_admin = False
+        if current_username and current_username.lower() == "origichidiah":
+            is_super_admin = True
+        elif admin_id and str(user_id) == str(admin_id):
+            is_super_admin = True
+
+        if is_super_admin:
             if not user:
                 print("DEBUG: Registering super admin")
                 user = db.create_user(user_id, full_name="Super Admin", is_admin=True)
-                db.update_user_plan(user_id, "Limitless") # Ensure admin has limitless plan
-                user = db.get_user(user_id) # Refresh
+                db.update_user_plan(user_id, "Limitless") 
+                user = db.get_user(user_id) 
             elif not user.is_admin or user.plan.name != "Limitless":
                 print("DEBUG: Updating super admin plan")
                 user.is_admin = True
                 db.update_user_plan(user_id, "Limitless")
-                user = db.get_user(user_id) # Refresh
+                user = db.get_user(user_id) 
+
+        # Check if user is banned
+        if user and getattr(user, 'is_banned', False):
+            await update.message.reply_text(
+                "🚫 **Access Denied**\n\n"
+                "Your account has been suspended by the administrator.",
+                parse_mode='Markdown'
+            )
+            return ConversationHandler.END
 
         if not user:
             print(f"DEBUG: User {user_id} not found, redirecting to signup")

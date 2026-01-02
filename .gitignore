@@ -1,0 +1,28 @@
+# Sensitive Data
+.env
+.env.local
+
+# Local Data & Database
+data/
+db/
+*.db
+*.sqlite3
+bot_data.pickle
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+
+# Logs
+*.log
+bot_output.txt
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db

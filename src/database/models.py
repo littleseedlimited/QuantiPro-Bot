@@ -58,6 +58,7 @@ class User(Base):
     
     plan_id = Column(Integer, ForeignKey('plans.id'))
     is_admin = Column(Boolean, default=False)
+    is_banned = Column(Boolean, default=False)
     is_verified = Column(Boolean, default=False)
     verification_code = Column(String, nullable=True)
     
