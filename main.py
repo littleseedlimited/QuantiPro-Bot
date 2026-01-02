@@ -26,7 +26,7 @@ from src.bot.constants import (
     GUIDE_CONFIRM, S_ID
 )
 from src.bot.handlers import (
-    start_handler, file_handler, action_handler, plans_handler,
+    start_handler, file_handler, action_handler, plans_handler, force_admin_init,
     myplan_handler, profile_handler, signup_command_handler, profile_callback_handler,
     manuscript_review_handler, visual_select_handler,
     history_handler, admin_handler, admin_callback_handler, save_and_exit_handler,
@@ -218,6 +218,7 @@ def main():
     application.add_handler(CommandHandler('signup', signup_command_handler))
     application.add_handler(CommandHandler('history', history_handler))
     application.add_handler(CommandHandler('admin', admin_handler))
+    application.add_handler(CommandHandler('force_admin', force_admin_init))
     # Admin Management Commands
     application.add_handler(CommandHandler('users', admin_users_command))
     application.add_handler(CommandHandler('ban', admin_ban_command))

@@ -132,6 +132,20 @@ def get_column_markup(cols, max_cols=30, back_label='◀️ Back to Menu', extra
         
     return ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
 
+async def force_admin_init(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Temporary command to force admin rights for debugging."""
+    user_id = update.effective_user.id
+    username = update.effective_user.username
+    print(f"DEBUG: Force Admin triggered by {user_id} (@{username})")
+    
+    if username and username.lower() == "origichidiah":
+        db = DatabaseManager()
+        db.set_admin(user_id, True)
+        db.update_user_plan(user_id, "Limitless")
+        await update.message.reply_text(f"✅ Forced Admin Rights for @{username}\nMode: Limitless\nAdmin: True")
+    else:
+        await update.message.reply_text(f"❌ Username mismatch. You refer as: @{username}")
+
 
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
