@@ -466,7 +466,73 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # --- RESET STICKY STATES (only if NOT in AI chat mode) ---
     context.user_data['awaiting_column_select'] = None
 
-    # --- TOP LEVEL CATEGORIES ---
+    # --- VARIABLE LABEL MAPPING ---
+    if choice == '🏷️ Map Variable Labels':
+        # Prompt for variable selection (using existing helper if possible, or manual list)
+        if df is None:
+            await update.message.reply_text("⚠️ Please upload data first.")
+            return ACTION
+            
+        context.user_data['awaiting_map_col'] = True
+        cols = df.columns.tolist()
+        # Simple keyboard
+        keyboard = [[c] for c in cols[:20]]
+        keyboard.append(['◀️ Back'])
+        await update.message.reply_text(
+            "🏷️ **Select Variable to Label**\nChoose the column containing values (e.g., 1, 2) you want to rename:",
+            reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
+        )
+        return ACTION
+
+    if context.user_data.get('awaiting_map_col'):
+        if choice == '◀️ Back':
+            context.user_data['awaiting_map_col'] = False
+            await show_action_menu(update)
+            return ACTION
+            
+        context.user_data['map_target_col'] = choice
+        context.user_data['awaiting_map_col'] = False
+        context.user_data['awaiting_map_values'] = True
+        
+        await update.message.reply_text(
+            f"📝 **Enter Labels for '{choice}'**\n\n"
+            "Format: `Value=Label, Value=Label`\n"
+            "Example: `1=Male, 2=Female`\n\n"
+            "Type the mapping below:",
+            parse_mode='Markdown',
+            reply_markup=ReplyKeyboardMarkup([['◀️ Cancel']], one_time_keyboard=True)
+        )
+        return ACTION
+
+    if context.user_data.get('awaiting_map_values'):
+        if choice == '◀️ Cancel':
+            context.user_data['awaiting_map_values'] = False
+            await show_action_menu(update)
+            return ACTION
+            
+        from src.core.data_mapper import DataMapper
+        target_col = context.user_data.get('map_target_col')
+        
+        try:
+            mapping = DataMapper.parse_mapping_string(choice)
+            if mapping:
+                df = context.user_data['df']
+                df = DataMapper.apply_mapping(df, target_col, mapping)
+                context.user_data['df'] = df # Update session df
+                
+                await update.message.reply_text(
+                    f"✅ Updated **{target_col}**!\n"
+                    f"Mapped: {mapping}\n\n"
+                    "You can now use these labels in charts and tables."
+                )
+            else:
+                await update.message.reply_text("⚠️ Could not parse mapping. Try '1=A, 2=B'.")
+        except Exception as e:
+            await update.message.reply_text(f"⚠️ Error: {e}")
+            
+        context.user_data['awaiting_map_values'] = False
+        await show_action_menu(update)
+        return ACTION
     if choice == '📉 Describe & Explore':
         await update.message.reply_text(
             "📉 **Describe & Explore**\n_Select an analysis type:_ ",
@@ -506,7 +572,7 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=ReplyKeyboardMarkup([
                 ['📉 Describe & Explore', '🆚 Hypothesis Tests'],
                 ['🔗 Relationships & Models', '📝 Generate Report'],
-                ['💬 AI Chat', '❌ Cancel']
+                ['🏷️ Map Variable Labels', '💬 AI Chat', '❌ Cancel']
             ], one_time_keyboard=True, resize_keyboard=True)
         )
         return ACTION
@@ -1941,7 +2007,10 @@ async def manuscript_review_handler(update: Update, context: ContextTypes.DEFAUL
                         'title': 'Table 1: Descriptive Statistics', 
                         'data': desc_df
                     })
+                    # Keep legacy string for AI context
+                    desc_res = desc_df.to_string()
                 except:
+                    desc_res = "Not available"
                     pass
 
                 # 2. History Results
@@ -1979,6 +2048,33 @@ async def manuscript_review_handler(update: Update, context: ContextTypes.DEFAUL
                     min_word_count=settings.get('min_word_count', 1500),
                     max_word_count=settings.get('max_word_count', 2500)
                 )
+
+                # Generate AI Citations if requested
+                ai_refs = await interpreter.generate_references(
+                     title=context.user_data.get('research_title', ''),
+                     objectives=context.user_data.get('research_objectives', '')
+                )
+                
+                # Convert to Reference objects (simplified)
+                from src.writing.citations import Reference
+                for ar in ai_refs:
+                     # Check if reference already exists to avoid dupes? 
+                     # For now just append
+                     references.append(Reference(
+                         title=ar.get('title', ''),
+                         authors=[ar.get('authors', '')],
+                         year=ar.get('year', '2024'),
+                         source=ar.get('source', '')
+                     ))
+                     
+                # Add Chat Log as Appendix
+                chat_log = context.user_data.get('chat_log', [])
+                if chat_log:
+                    formatted_chat = "AI Analysis Chat History:\n\n" + "\n\n".join(chat_log)
+                    # Append strictly to end or a custom section
+                    # We will append it to stats_results for now as a separate section, or handle in generator
+                    # Let's add it to stats_results as a "Chat Log" text block for simplicity in IMRAD
+                    stats_results.append(formatted_chat)
 
                 
                 base_name = os.path.basename(file_path).replace('.', '_')

@@ -222,6 +222,51 @@ IMPORTANT FORMATTING:
         else:
             return self._discussion_fallback(title, analysis_history)
     
+    
+    async def generate_references(self, title: str, objectives: str, count: int = 5) -> list:
+        """
+        Generate relevant academic references based on the research topic using AI.
+        Returns a list of dicts: {'authors': ..., 'year': ..., 'title': ..., 'source': ...}
+        """
+        if not self.api_key:
+            return []
+
+        try:
+            from openai import AsyncOpenAI
+            import json
+            client = AsyncOpenAI(api_key=self.api_key)
+            
+            prompt = f"""
+            You are an academic research assistant.
+            Generate {count} REAL or highly plausible academic references relevant to this study:
+            Title: {title}
+            Objectives: {objectives}
+            
+            Return ONLY a JSON array of objects with these keys: "authors", "year", "title", "source".
+            Ensure they are formatted for APA 7th edition citation.
+            Example: [{{"authors": "Smith, J.", "year": "2023", "title": "Study Name", "source": "Journal of X"}}]
+            """
+
+            response = await client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=600,
+                temperature=0.7
+            )
+            
+            content = response.choices[0].message.content.strip()
+            # Clean markdown code blocks if present
+            if content.startswith("```json"):
+                content = content[7:-3]
+            elif content.startswith("```"):
+                content = content[3:-3]
+                
+            refs = json.loads(content)
+            return refs
+        except Exception as e:
+            logger.error(f"Error generating references: {e}")
+            return []
+
     def _discussion_fallback(self, title: str, analysis_history: list) -> str:
         """Generate a basic discussion when AI is not available."""
         findings = []

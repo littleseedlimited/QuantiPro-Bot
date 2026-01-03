@@ -332,9 +332,15 @@ class ManuscriptGenerator:
             if stats_results:
                 self.doc.add_heading("Results", level=1)
                 for res in stats_results:
-                    for para in res.split('\n\n'):
-                        if para.strip():
-                            self._add_paragraph(para.strip())
+                    if isinstance(res, dict) and 'type' in res and res['type'] == 'table':
+                        # Structured table data
+                        self._add_table(res['data'], title=res.get('title', ''))
+                        if 'narrative' in res:
+                             self._add_paragraph(res['narrative'])
+                    elif isinstance(res, str):
+                        for para in res.split('\n\n'):
+                            if para.strip():
+                                self._add_paragraph(para.strip())
             
             if discussion_text:
                 self.doc.add_page_break()
