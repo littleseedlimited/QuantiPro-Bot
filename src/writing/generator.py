@@ -227,6 +227,7 @@ class ManuscriptGenerator:
         
         return p
     
+    
     def _add_bullet_point(self, text: str) -> None:
         """Add a paragraph with bullet point style."""
         p = self.doc.add_paragraph(style='List Bullet')
@@ -235,6 +236,43 @@ class ManuscriptGenerator:
         # Track word count
         self.word_count += len(text.split())
         return p
+    
+    def _add_table(self, data: Any, title: str = "") -> None:
+        """Render a pandas DataFrame or list of dicts as a Word table."""
+        import pandas as pd
+        
+        if title:
+            self._add_paragraph(title, bold=True, italic=True, center=True)
+            
+        df = None
+        if isinstance(data, pd.DataFrame):
+            df = data.reset_index() if data.index.name else data
+        elif isinstance(data, dict):
+            df = pd.DataFrame(data)
+        elif isinstance(data, list):
+            df = pd.DataFrame(data)
+            
+        if df is not None:
+            # Create table
+            table = self.doc.add_table(rows=1, cols=len(df.columns))
+            table.style = 'Table Grid'
+            
+            # Header
+            hdr_cells = table.rows[0].cells
+            for i, col in enumerate(df.columns):
+                hdr_cells[i].text = str(col)
+                hdr_cells[i].paragraphs[0].runs[0].bold = True
+                
+            # Rows
+            for index, row in df.iterrows():
+                row_cells = table.add_row().cells
+                for i, value in enumerate(row):
+                    val_str = str(value)
+                    if isinstance(value, float):
+                        val_str = f"{value:.3f}"
+                    row_cells[i].text = val_str
+            
+            self.doc.add_paragraph()  # Spacing after table
     
     def generate(self, 
                  filename: str,
@@ -334,8 +372,9 @@ class ManuscriptGenerator:
         self.doc.save(filename)
         return filename, self.word_count
     
+    
     def _generate_imrad(self, content_sections: Dict, methods_text: str,
-                        stats_results: List[str], discussion_text: str,
+                        stats_results: List[Any], discussion_text: str,
                         conclusion_text: str):
         """Generate IMRAD format document."""
         
@@ -377,9 +416,16 @@ class ManuscriptGenerator:
         if stats_results:
             self.doc.add_heading("Results", level=1)
             for res in stats_results:
-                for para in res.split('\n\n'):
-                    if para.strip():
-                        self._add_paragraph(para.strip())
+                if isinstance(res, dict) and 'type' in res and res['type'] == 'table':
+                    # Structured table data
+                    self._add_table(res['data'], title=res.get('title', ''))
+                    if 'narrative' in res:
+                         self._add_paragraph(res['narrative'])
+                elif isinstance(res, str):
+                    # Legacy string format
+                    for para in res.split('\n\n'):
+                        if para.strip():
+                            self._add_paragraph(para.strip())
         
         # Discussion
         if discussion_text:

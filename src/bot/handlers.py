@@ -747,9 +747,24 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Build context for AI
             data_summary = f"Dataset: {len(df)} rows, {len(df.columns)} columns\n"
             data_summary += f"Columns: {', '.join(df.columns.tolist())}\n"
+            
+            # Add Data Snapshot (First 5 rows) for better context
+            try:
+                snapshot = df.head(5).to_markdown(index=False)
+                data_summary += f"\nData Snapshot (First 5 rows):\n{snapshot}\n"
+            except:
+                pass
+
+            # Add Analysis History
+            history = context.user_data.get('analysis_history', [])
+            if history:
+                data_summary += "\nAnalyses Performed:\n"
+                for h in history[-3:]: # Last 3 only
+                    data_summary += f"- {h['test']}: {str(h.get('result', ''))[:100]}...\n"
+
             # Limit numeric cols string to avoid token limit
             num_cols = df.select_dtypes(include='number').columns.tolist()
-            data_summary += f"Numeric: {', '.join(num_cols[:50])}" 
+            data_summary += f"\nNumeric Vars: {', '.join(num_cols[:50])}" 
             
             # from openai import AsyncOpenAI
             # import os
@@ -766,11 +781,11 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 response = await client.chat.completions.create(
                     model="gpt-4o-mini",
                     messages=[
-                        {"role": "system", "content": f"You are a statistical analyst. The user has a dataset with these details:\n{data_summary}\n\nAnswer their question about the data. Be concise and clear. Do NOT use asterisks or markdown formatting. Use plain text only."},
+                        {"role": "system", "content": f"You are a statistical analyst. The user has a dataset:\n{data_summary}\n\nAnswer their question. Refer to the data snapshot/history if relevant. Be concise. Plain text only (no markdown tables)."},
                         {"role": "user", "content": choice}
                     ],
-                    max_tokens=300,
-                    timeout=25.0
+                    max_tokens=400,
+                    timeout=30.0
                 )
                 answer = response.choices[0].message.content
                 
@@ -1914,13 +1929,40 @@ async def manuscript_review_handler(update: Update, context: ContextTypes.DEFAUL
                 # Gather data
                 analysis_history = context.user_data.get('analysis_history', [])
                 references = context.user_data.get('references', [])
-                desc_res = Analyzer.get_descriptive_stats(df).to_string()
                 
-                # Build stats results
-                stats_results = [f"Descriptive Statistics:\n{desc_res}"]
+                # Build stats results with STRUCTURED TABLES
+                stats_results = []
+                
+                # 1. Descriptive Stats Table
+                try:
+                    desc_df = Analyzer.get_descriptive_stats(df)
+                    stats_results.append({
+                        'type': 'table', 
+                        'title': 'Table 1: Descriptive Statistics', 
+                        'data': desc_df
+                    })
+                except:
+                    pass
+
+                # 2. History Results
                 for i, analysis in enumerate(analysis_history, 1):
                     detailed_res = analysis.get('result', '')
-                    stats_results.append(f"\nAnalysis {i}: {analysis['test']}\nVariables: {analysis['vars']}\n{detailed_res}")
+                    test_name = analysis['test']
+                    
+                    narrative = f"Analysis {i}: {test_name}\nVariables: {analysis['vars']}\n{detailed_res}"
+                    
+                    # Try to get tabular data from analysis record if available
+                    # (Analyzer needs to save 'data' as dict/df in history for this to fully work, 
+                    # usually it saves strings. If 'data' key contains dict, we use it)
+                    if isinstance(analysis.get('data'), (dict, list)):
+                         stats_results.append({
+                            'type': 'table',
+                            'title': f"Table {i+1}: {test_name} Results",
+                            'data': analysis['data'],
+                            'narrative': narrative
+                         })
+                    else:
+                        stats_results.append(narrative)
                 
                 # Gather visuals
                 visuals_history = context.user_data.get('visuals_history', [])
