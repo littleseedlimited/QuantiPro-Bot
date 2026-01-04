@@ -343,14 +343,14 @@ async def file_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         await update.message.reply_text(
             f"✅ **File Loaded & Cleaned Successfully!**\n\n{info}\n\n"
-            "**Select an Analysis Category:**",
+            "**Would you like to map variable labels?**\n"
+            "_Define value labels (e.g., 1=Male) for better charts & reports._",
             parse_mode='Markdown',
             reply_markup=ReplyKeyboardMarkup([
-                ['📉 Describe & Explore', '🆚 Hypothesis Tests'],
-                ['🔗 Relationships & Models', '📝 Generate Report'],
-                ['💬 AI Chat', '❌ Cancel']
+                ['Yes, Map Labels', 'No, Proceed']
             ], one_time_keyboard=True, resize_keyboard=True)
         )
+        context.user_data['awaiting_map_decision'] = True
         return ACTION
 
         
@@ -358,9 +358,48 @@ async def file_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ Error loading file: {str(e)}\nPlease try another file.")
         return UPLOAD
 
-async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text
     file_path = context.user_data.get('file_path')
+    df = context.user_data.get('df')
+
+    # --- HANDLE UPLOAD DECISION ---
+    if context.user_data.get('awaiting_map_decision'):
+        context.user_data['awaiting_map_decision'] = False
+        
+        if choice == 'Yes, Map Labels':
+            # Redirect to mapping flow
+            context.user_data['awaiting_map_col'] = True
+            if df is not None:
+                cols = df.columns.tolist()
+                keyboard = [[c] for c in cols[:20]]
+                keyboard.append(['◀️ Back'])
+                await update.message.reply_text(
+                    "🏷️ **Select Variable to Label**\nChoose the column containing values (e.g., 1, 2) you want to rename:",
+                    reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
+                )
+                return ACTION
+        
+        elif choice == 'No, Proceed':
+            # Show Dataset Description & Main Menu
+            if df is not None:
+                # Create a readable summary
+                num_vars = len(df.select_dtypes(include='number').columns)
+                cat_vars = len(df.select_dtypes(exclude='number').columns)
+                
+                desc = f"📊 **Dataset Overview**\n"
+                desc += f"• **Rows**: {len(df):,}\n"
+                desc += f"• **Columns**: {len(df.columns)}\n"
+                desc += f"• **Numeric Vars**: {num_vars}\n"
+                desc += f"• **Categorical Vars**: {cat_vars}\n\n"
+                desc += "**Top Variables:**\n"
+                for col in df.columns[:5]:
+                    dtype = str(df[col].dtype)
+                    desc += f"- `{col}` ({dtype})\n"
+                
+                await update.message.reply_text(desc, parse_mode='Markdown')
+            
+            await show_action_menu(update)
+            return ACTION
 
     # --- MAIN MENU ROUTING (Pre-File Load) ---
     if choice == '📊 Analyse Data (Upload File)':
@@ -1174,78 +1213,92 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ACTION
 
 
-    # Handle tabulation variable selection
+    # Handle TABULATION variable selection
     elif context.user_data.get('awaiting_tabulation_var'):
-        context.user_data['awaiting_tabulation_var'] = False
-        
         if choice == '◀️ Back to Menu':
+            context.user_data['awaiting_tabulation_var'] = False
             await show_action_menu(update)
             return ACTION
-        
-        # VALIDATION
-        all_cols = context.user_data.get('columns', [])
-        if choice not in all_cols:
-             await update.message.reply_text("⚠️ Invalid variable. Please select from the keyboard.")
-             return ACTION
 
-        try:
-            if df is None:
-                raise ValueError("Dataset not loaded.")
-            await update.message.reply_text("⚙️ Creating frequency table...")
-            result = Analyzer.frequency_table(df, choice)
+        if choice == 'Done Selecting':
+            context.user_data['awaiting_tabulation_var'] = False
+            vars = context.user_data.get('tabulation_vars', [])
             
-            if "error" in result:
-                await update.message.reply_text(f"⚠️ Error: {result['error']}")
-            else:
-                table = result['table']
-                # Mobile-friendly format
-                output = f"📋 **Frequency Table: {choice}**\n\n"
-                output += f"📊 Categories: {result['n_categories']}\n"
-                output += f"📏 Total: {result['n_observations']}\n"
-                output += f"🏆 Mode: {result['mode']}\n\n"
-                
-                # Format table for mobile
-                for idx in table.index:
-                    count = table.loc[idx, 'Count']
-                    pct = table.loc[idx, 'Percent']
-                    output += f"▸ {idx}: {count} ({pct}%)\n"
-                
-                await update.message.reply_text(output, parse_mode='Markdown')
-                
-                # Store for export
-                context.user_data['last_analysis'] = {
-                    'type': 'frequency_table',
-                    'data': table,
-                    'title': f'Frequency_{choice}'
-                }
-                
-                # Store for history
-                if 'analysis_history' not in context.user_data: context.user_data['analysis_history'] = []
-                context.user_data['analysis_history'].append({
-                    'test': 'Frequency Tabulation',
-                    'vars': choice,
-                    'result': output,
-                    'data': table.to_dict()
-                })
-                
-                # Suggest visuals and export
-                context.user_data['last_tabulation_var'] = choice
-                await update.message.reply_text(
-                    f"📊 **Options for {choice}**:",
-                    parse_mode='Markdown',
-                    reply_markup=ReplyKeyboardMarkup([
-                        ['📊 Bar Chart', '🥧 Pie Chart'],
-                        ['📤 Export to Excel', '📤 Export to CSV'],
-                        ['⏭️ Skip - Back to Menu']
-                    ], one_time_keyboard=True, resize_keyboard=True)
-                )
-                context.user_data['awaiting_tabulation_visual'] = True
+            if not vars:
+                await update.message.reply_text("⚠️ Please select at least one variable.")
                 return ACTION
-                
-        except Exception as e:
-            await update.message.reply_text(f"⚠️ Error: {str(e)[:100]}")
+            
+            # Process ALL selected variables
+            await update.message.reply_text(f"⚙️ Generating Frequency Tables for {len(vars)} variables...")
+            
+            if df is None:
+                 await update.message.reply_text("Dataset lost. Please reload.")
+                 return ACTION
+
+            for var in vars:
+                try:
+                    result = Analyzer.frequency_table(df, var)
+                    if "error" in result:
+                        await update.message.reply_text(f"⚠️ Error ({var}): {result['error']}")
+                        continue
+                        
+                    table = result['table']
+                    # Mobile-friendly format
+                    output = f"📋 **Freq: {var}** (N={result['n_observations']})\n"
+                    # output += f"Mode: {result['mode']}\n"
+                    output += "```\n"
+                    output += f"{'Category':<15} {'Freq':<5} {'%'}\n"
+                    output += "-" * 30 + "\n"
+                    
+                    for idx in table.index[:15]: # Limit to top 15 for chat
+                        count = table.loc[idx, 'Count']
+                        pct = table.loc[idx, 'Percent']
+                        cat_str = str(idx)[:15]
+                        output += f"{cat_str:<15} {count:<5} {pct}\n"
+                    output += "```\n"
+                    
+                    await update.message.reply_text(output, parse_mode='Markdown')
+
+                    # Store for history
+                    if 'analysis_history' not in context.user_data: context.user_data['analysis_history'] = []
+                    context.user_data['analysis_history'].append({
+                        'test': f'Frequency: {var}',
+                        'vars': var,
+                        'result': output,
+                        'data': table.to_dict() # For manuscript table
+                    })
+                    
+                except Exception as e:
+                    await update.message.reply_text(f"⚠️ Error processing {var}: {e}")
+
+            await show_action_menu(update, "✅ Tabulation Complete")
+            return ACTION
+
+        # Variable Selection Logic
+        all_cols = context.user_data.get('columns', [])
         
-        await show_action_menu(update)
+        # Initialize list if needed
+        if 'tabulation_vars' not in context.user_data:
+            context.user_data['tabulation_vars'] = []
+            
+        clean_choice = choice.replace('✅ ', '')
+        
+        if clean_choice not in all_cols:
+             if choice != 'Done Selecting':
+                 await update.message.reply_text("⚠️ Invalid variable.")
+                 return ACTION
+        else:
+             if clean_choice not in context.user_data['tabulation_vars']:
+                 context.user_data['tabulation_vars'].append(clean_choice)
+        
+        selected = context.user_data['tabulation_vars']
+        markup = get_column_markup(all_cols, extra_buttons=['Done Selecting'], selected_items=selected)
+        
+        await update.message.reply_text(
+            f"Selected: {', '.join(selected)}\n\n"
+            "Select more or tap 'Done':",
+            reply_markup=markup
+        )
         return ACTION
 
     # Handle tabulation visual suggestion

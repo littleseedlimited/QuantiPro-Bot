@@ -342,13 +342,13 @@ async def test_var_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'test': 'Independent T-Test' if test_type == 'ttest' else 'Mann-Whitney U',
             'vars': f'{col} by {group_col}',
             'result': msg,
-            'data': res
+            'data': [res] # Wrapped in list for DataFrame conversion
         })
         
         # Store for export
         context.user_data['last_analysis'] = {
             'type': 'hypothesis_test',
-            'data': res,
+            'data': [res], # Wrapped in list
             'title': f'{test_type}_{group_col}_{col}'
         }
         
