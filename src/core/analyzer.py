@@ -3,18 +3,8 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Any, Union
 
-# Optional Dependencies
-try:
-    from scipy import stats
-    import statsmodels.api as sm
-    from statsmodels.formula.api import ols
-    import pingouin as pg
-    HAS_ADVANCED_STATS = True
-except ImportError:
-    HAS_ADVANCED_STATS = False
-    sm = None
-    pg = None
-    stats = None
+# Optional Dependencies (Lazy Loaded)
+HAS_ADVANCED_STATS = True # Assumed true if installed, checks inside methods
 
 class Analyzer:
     """
@@ -108,10 +98,13 @@ class Analyzer:
                      continue
 
                 if method == 'pearson':
+                    from scipy.stats import pearsonr
                     r, p = pearsonr(valid_data.iloc[:, 0], valid_data.iloc[:, 1])
                 elif method == 'spearman':
+                    from scipy.stats import spearmanr
                     r, p = spearmanr(valid_data.iloc[:, 0], valid_data.iloc[:, 1])
                 else: # kendall
+                    from scipy.stats import kendalltau
                     r, p = kendalltau(valid_data.iloc[:, 0], valid_data.iloc[:, 1])
                 
                 p_matrix.iloc[i, j] = p
@@ -151,6 +144,7 @@ class Analyzer:
         g1 = clean_df[clean_df[group_col] == groups[0]][value_col]
         g2 = clean_df[clean_df[group_col] == groups[1]][value_col]
         
+        import pingouin as pg
         res = pg.ttest(g1, g2, paired=paired)
         
         return {
@@ -172,6 +166,7 @@ class Analyzer:
         if not HAS_ADVANCED_STATS:
             return pd.DataFrame() # Empty if no libs
 
+        import pingouin as pg
         aov = pg.anova(data=df, dv=dv, between=between)
         return aov
 
@@ -216,6 +211,8 @@ class Analyzer:
 
         X = clean_df[x_cols]
         y = clean_df[y_col]
+        
+        import statsmodels.api as sm
         X = sm.add_constant(X)
         
         try:
@@ -258,6 +255,7 @@ class Analyzer:
         if not HAS_ADVANCED_STATS:
             return {"error": "Pingouin required for Cronbach Alpha."}
             
+        import pingouin as pg
         alpha = pg.cronbach_alpha(data=df[columns])
         return {
             "alpha": alpha[0],
@@ -274,6 +272,7 @@ class Analyzer:
             return {"error": "Scipy required for Chi-square."}
             
         contingency = pd.crosstab(df[col1], df[col2])
+        from scipy import stats
         chi2, p, dof, expected = stats.chi2_contingency(contingency)
         
         return {
@@ -298,6 +297,7 @@ class Analyzer:
         g1 = df[df[group_col] == groups[0]][value_col]
         g2 = df[df[group_col] == groups[1]][value_col]
         
+        import pingouin as pg
         if test == 'mann-whitney':
             res = pg.mwu(g1, g2)
         else: # wilcoxon

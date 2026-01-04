@@ -23,7 +23,7 @@ from src.bot.constants import (
     MODE_SELECT, METHOD_SELECT, CI_SELECT, PARAM_INPUT, STUDY_TYPE_SELECT, POPULATION_CHECK,
     S_NAME, S_EMAIL, S_PHONE, S_COUNTRY,
     TEST_SELECT, VAR_SELECT_GROUP, VAR_SELECT_TEST, ANOVA_SELECT_FACTOR, ANOVA_SELECT_DV, RELIABILITY_SELECT,
-    GUIDE_CONFIRM, S_ID
+    GUIDE_CONFIRM, S_ID, CHART_CONFIG
 )
 from src.bot.handlers import (
     start_handler, file_handler, action_handler, plans_handler, force_admin_init,
@@ -32,7 +32,7 @@ from src.bot.handlers import (
     history_handler, admin_handler, admin_callback_handler, save_and_exit_handler,
     save_project_handler, payment_callback_handler, pre_checkout_handler, successful_payment_handler,
     help_handler, join_command_handler, ping_handler,
-    cancel
+    cancel, chart_config_input_handler
 )
 from src.bot.admin_commands import (
     admin_users_command, admin_ban_command, admin_unban_command, 
@@ -197,6 +197,7 @@ def main():
             ANOVA_SELECT_DV: [MessageHandler(filters.TEXT & ~filters.COMMAND, anova_dv_handler)],
             RELIABILITY_SELECT: [MessageHandler(filters.TEXT & ~filters.COMMAND, reliability_select_handler)],
             GUIDE_CONFIRM: [MessageHandler(filters.TEXT & ~filters.COMMAND, guide_confirm_handler)],
+            CHART_CONFIG: [MessageHandler(filters.TEXT & ~filters.COMMAND, chart_config_input_handler)],
         },
         fallbacks=[CommandHandler('cancel', cancel)],
         allow_reentry=True

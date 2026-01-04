@@ -7,13 +7,9 @@ from typing import List, Optional
 try:
     import matplotlib
     matplotlib.use('Agg')  # Non-interactive backend
-    import matplotlib.pyplot as plt
-    import seaborn as sns
     HAS_VISUALS = True
 except ImportError:
     HAS_VISUALS = False
-    plt = None
-    sns = None
 
 class Visualizer:
     """
@@ -30,6 +26,14 @@ class Visualizer:
     }
 
     @staticmethod
+    def _get_plt_sns():
+        """Lazy load plotting libraries to save memory on startup."""
+        if not HAS_VISUALS: return None, None
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+        return plt, sns
+
+    @staticmethod
     def _get_figsize(size_name: str, base_w=10, base_h=6) -> tuple:
         if size_name == 'small': return (base_w * 0.7, base_h * 0.7)
         if size_name == 'large': return (base_w * 1.3, base_h * 1.3)
@@ -38,6 +42,9 @@ class Visualizer:
     @staticmethod
     def _apply_config(config: dict = None):
         """Apply seaborn style and context settings."""
+        plt, sns = Visualizer._get_plt_sns()
+        if not sns: return config
+        
         cfg = config or Visualizer.DEFAULT_CONFIG
         style = cfg.get('style', 'whitegrid')
         context = cfg.get('context', 'notebook')
@@ -47,8 +54,9 @@ class Visualizer:
     
     @staticmethod
     def _save_plot(filename: str = 'plot.png') -> Optional[str]:
-        if not HAS_VISUALS:
-            return None
+        plt, _ = Visualizer._get_plt_sns()
+        if not plt: return None
+        
         data_dir = os.getenv("DATA_DIR", "data")
         plots_dir = os.path.join(data_dir, 'plots')
         if not os.path.exists(plots_dir):
@@ -57,11 +65,18 @@ class Visualizer:
         # Use high DPI for better quality
         plt.savefig(path, bbox_inches='tight', dpi=300)
         plt.close()
+        
+        # Aggressive GC
+        import gc
+        gc.collect()
         return path
 
     @staticmethod
     def _setup_figure(title: str, xlabel: str = None, ylabel: str = None, figsize=(12, 8), config: dict = None):
         """Helper to setup plot aesthetics."""
+        plt, _ = Visualizer._get_plt_sns()
+        if not plt: return
+        
         cfg = Visualizer._apply_config(config)
         
         # Override figsize if 'size' is in config
@@ -74,15 +89,29 @@ class Visualizer:
         else:
              plt.figure(figsize=figsize)
              
-        plt.title(title, fontsize=16, fontweight='bold', pad=20)
+        plt.title(config.get('title', title), fontsize=16, fontweight='bold', pad=20)
+        
+        # Axis Labels
+        xlabel = config.get('xlabel', xlabel)
+        ylabel = config.get('ylabel', ylabel)
+        
         if xlabel: plt.xlabel(xlabel, fontsize=12)
         if ylabel: plt.ylabel(ylabel, fontsize=12)
+        
+        # Gridlines
+        if config and config.get('defaults', {}).get('grid', True):
+            plt.grid(True, alpha=0.3, linestyle='--')
+        elif config and 'grid' in config:
+             if config['grid']:
+                 plt.grid(True, alpha=0.3, linestyle='--')
+             else:
+                 plt.grid(False)
 
     @staticmethod
     def create_table_image(df: pd.DataFrame, title: str = "Data Table", max_rows: int = 20, max_cols: int = 8) -> Optional[str]:
         """Render a DataFrame as a neat table image."""
-        if not HAS_VISUALS:
-            return None
+        plt, _ = Visualizer._get_plt_sns()
+        if not plt: return None
         
         # Limit size for readability
         display_df = df.head(max_rows)
@@ -121,8 +150,8 @@ class Visualizer:
     @staticmethod
     def create_stats_table_image(stats_df: pd.DataFrame, title: str = "Descriptive Statistics") -> Optional[str]:
         """Render descriptive statistics as a professional, sleek table image."""
-        if not HAS_VISUALS:
-            return None
+        plt, _ = Visualizer._get_plt_sns()
+        if not plt: return None
         
         display_df = stats_df.round(3)
         n_rows, n_cols = display_df.shape
@@ -189,7 +218,8 @@ class Visualizer:
 
     @staticmethod
     def create_histogram(df: pd.DataFrame, column: str, config: dict = None) -> Optional[str]:
-        if not HAS_VISUALS: return None
+        plt, sns = Visualizer._get_plt_sns()
+        if not plt: return None
         Visualizer._setup_figure(f'Distribution of {column}', xlabel=column, ylabel='Frequency', config=config)
         
         palette = config.get('palette', 'viridis') if config else 'viridis'
@@ -201,7 +231,8 @@ class Visualizer:
 
     @staticmethod
     def create_boxplot(df: pd.DataFrame, x: str, y: str, config: dict = None) -> Optional[str]:
-        if not HAS_VISUALS: return None
+        plt, sns = Visualizer._get_plt_sns()
+        if not plt: return None
         # Dynamic width for many categories
         n_cats = df[x].nunique()
         width = max(10, min(24, n_cats * 0.8))
@@ -216,7 +247,8 @@ class Visualizer:
 
     @staticmethod
     def create_scatterplot(df: pd.DataFrame, x: str, y: str, config: dict = None) -> Optional[str]:
-        if not HAS_VISUALS: return None
+        plt, sns = Visualizer._get_plt_sns()
+        if not plt: return None
         Visualizer._setup_figure(f'{y} vs {x}', xlabel=x, ylabel=y, config=config)
         
         palette = config.get('palette', 'deep') if config else 'deep'
@@ -227,7 +259,8 @@ class Visualizer:
     
     @staticmethod
     def create_correlation_heatmap(df: pd.DataFrame, columns: List[str] = None, config: dict = None) -> Optional[str]:
-        if not HAS_VISUALS: return None
+        plt, sns = Visualizer._get_plt_sns()
+        if not plt: return None
         Visualizer._apply_config(config)
         
         if columns:
@@ -261,7 +294,8 @@ class Visualizer:
     @staticmethod
     def create_bar_chart(df: pd.DataFrame, x: str, y: str = None, config: dict = None) -> Optional[str]:
         """Create a bar chart with auto-rotation and sorting."""
-        if not HAS_VISUALS: return None
+        plt, sns = Visualizer._get_plt_sns()
+        if not plt: return None
         Visualizer._apply_config(config)
         
         # Determine data size for dynamic plotting
@@ -279,28 +313,44 @@ class Visualizer:
         if y:
             # Mean bar chart
             chart_data = df.groupby(x)[y].mean().sort_values(ascending=False).reset_index()
-            sns.barplot(data=chart_data, x=x, y=y, palette=palette)
+            ax = sns.barplot(data=chart_data, x=x, y=y, palette=palette)
             plt.ylabel(f'Mean {y}', fontsize=12)
             title = f'Mean {y} by {x}'
         else:
             # Count bar chart
             chart_data = df[x].value_counts().reset_index()
             chart_data.columns = [x, 'Count']
-            sns.barplot(data=chart_data, x=x, y='Count', palette=palette)
+            ax = sns.barplot(data=chart_data, x=x, y='Count', palette=palette)
             plt.ylabel('Count', fontsize=12)
             title = f'Count by {x}'
             
-        plt.title(title, fontsize=16, fontweight='bold', pad=20)
-        plt.xlabel(x, fontsize=12)
+        plt.title(config.get('title', title), fontsize=16, fontweight='bold', pad=20)
+        plt.xlabel(config.get('xlabel', x), fontsize=12)
+        plt.ylabel(config.get('ylabel', f'Mean {y}' if y else 'Count'), fontsize=12)
         
         # Auto-rotate labels if many items or long labels
         plt.xticks(rotation=45, ha='right')
         
+        # Options: Data Labels
+        if config and config.get('data_labels', False):
+            for container in ax.containers:
+                ax.bar_label(container, fmt='%.2f' if y else '%d', padding=3)
+        
+        # Options: Legend
+        if config and config.get('legend', False):
+            plt.legend()
+        
+        # Grid provided by _apply_config/setup if managed there, but bar chart uses direct sns/plt here.
+        # Ensure grid matches config
+        if config and config.get('grid', False):
+             plt.grid(True, axis='y', alpha=0.3)
+
         return Visualizer._save_plot(f'bar_{x}_{y or "count"}.png')
 
     @staticmethod
     def create_line_chart(df: pd.DataFrame, x: str, y: str, config: dict = None) -> Optional[str]:
-        if not HAS_VISUALS: return None
+        plt, sns = Visualizer._get_plt_sns()
+        if not plt: return None
         Visualizer._setup_figure(f'{y} over {x}', xlabel=x, ylabel=y, config=config)
         
         palette = config.get('palette', 'deep') if config else 'deep'
@@ -310,13 +360,22 @@ class Visualizer:
         plt.plot(plot_df[x], plot_df[y], marker='o', linewidth=2, markersize=8, color=color)
         plt.fill_between(plot_df[x], plot_df[y], alpha=0.3, color=color)
         
+        # Options: Data Labels
+        if config and config.get('data_labels', False):
+             for i, txt in enumerate(plot_df[y]):
+                 plt.annotate(f"{txt:.2f}", (plot_df[x].iloc[i], plot_df[y].iloc[i]), 
+                              textcoords="offset points", xytext=(0,10), ha='center')
+
         plt.xticks(rotation=45, ha='right')
-        plt.grid(True, alpha=0.3)
+        
+        # Grid handled by _setup_figure
+        
         return Visualizer._save_plot(f'line_{x}_{y}.png')
 
     @staticmethod
     def create_pie_chart(df: pd.DataFrame, column: str, config: dict = None) -> Optional[str]:
-        if not HAS_VISUALS: return None
+        plt, sns = Visualizer._get_plt_sns()
+        if not plt: return None
         
         if config and 'size' in config:
              size = Visualizer._get_figsize(config['size'], 12, 10)
@@ -336,15 +395,25 @@ class Visualizer:
         # Pie requires a list of colors
         colors = sns.color_palette(palette, len(value_counts))
         
-        plt.pie(value_counts, labels=value_counts.index, autopct='%1.1f%%', 
+        # Options: Data Labels
+        autopct = '%1.1f%%' if (config is None or config.get('data_labels', True)) else None
+        
+        plt.pie(value_counts, labels=value_counts.index, autopct=autopct, 
                 colors=colors, startangle=90, explode=[0.02]*len(value_counts),
                 textprops={'fontsize': 11})
-        plt.title(f'Distribution of {column}', fontsize=16, fontweight='bold')
+        
+        title_text = config.get('title', f'Distribution of {column}') if config else f'Distribution of {column}'
+        plt.title(title_text, fontsize=16, fontweight='bold')
+        
+        if config and config.get('legend', True):
+             plt.legend(bbox_to_anchor=(1, 1))
+
         return Visualizer._save_plot(f'pie_{column}.png')
 
     @staticmethod
     def create_radar_chart(df: pd.DataFrame, columns: List[str], group_col: str = None, config: dict = None) -> Optional[str]:
-        if not HAS_VISUALS or len(columns) < 3: return None
+        plt, sns = Visualizer._get_plt_sns()
+        if not plt or len(columns) < 3: return None
         Visualizer._apply_config(config)
         
         fig, ax = plt.subplots(figsize=(10, 10), subplot_kw=dict(polar=True))
@@ -382,7 +451,8 @@ class Visualizer:
 
     @staticmethod
     def create_violin_plot(df: pd.DataFrame, x: str, y: str, config: dict = None) -> Optional[str]:
-        if not HAS_VISUALS: return None
+        plt, sns = Visualizer._get_plt_sns()
+        if not plt: return None
         n_cats = df[x].nunique()
         width = max(10, min(24, n_cats * 0.8))
         Visualizer._setup_figure(f'Distribution of {y} by {x}', xlabel=x, ylabel=y, figsize=(width, 8), config=config)
@@ -394,7 +464,8 @@ class Visualizer:
 
     @staticmethod
     def create_pair_plot(df: pd.DataFrame, columns: List[str]) -> Optional[str]:
-        if not HAS_VISUALS: return None
+        plt, sns = Visualizer._get_plt_sns()
+        if not plt: return None
         if len(columns) > 5: columns = columns[:5]
         
         # PairPlot handles its own figure

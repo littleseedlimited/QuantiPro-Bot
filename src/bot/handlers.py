@@ -4,6 +4,7 @@ import pandas as pd
 import os
 import io
 import asyncio
+import gc
 from openai import AsyncOpenAI
 
 from src.core.file_manager import FileManager
@@ -1310,27 +1311,23 @@ async def file_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await show_action_menu(update)
             return ACTION
         
-        try:
-            if df is None:
-                raise ValueError("Dataset not loaded.")
-            if choice == '📊 Bar Chart':
-                path = Visualizer.create_bar_chart(df, var)
-                if path:
-                    await update.message.reply_photo(photo=open(path, 'rb'), 
-                                                     caption=f"📊 Bar Chart: {var}")
-                    if 'visuals_history' not in context.user_data: context.user_data['visuals_history'] = []
-                    context.user_data['visuals_history'].append(path)
-            elif choice == '🥧 Pie Chart':
-                path = Visualizer.create_pie_chart(df, var)
-                if path:
-                    await update.message.reply_photo(photo=open(path, 'rb'), 
-                                                     caption=f"🥧 Pie Chart: {var}")
-                    if 'visuals_history' not in context.user_data: context.user_data['visuals_history'] = []
-                    context.user_data['visuals_history'].append(path)
-        except Exception as e:
-            await update.message.reply_text(f"⚠️ Could not create chart: {str(e)[:50]}")
+        if choice in ['📊 Bar Chart', '🥧 Pie Chart', '📈 Line Chart']:
+             # Initialize Chart Config
+             context.user_data['chart_type'] = choice
+             context.user_data['chart_var'] = var
+             context.user_data['chart_config'] = {
+                 'title': f'{choice[2:]} of {var}',
+                 'grid': True,
+                 'legend': False,
+                 'data_labels': False,
+                 'xlabel': var,
+                 'ylabel': 'Count'
+             }
+             
+             # Call the new options handler
+             return await chart_options_handler(update, context)
         
-        await show_action_menu(update, "✅ Chart generated!")
+        await show_action_menu(update)
         return ACTION
 
 
@@ -2068,65 +2065,75 @@ async def manuscript_review_handler(update: Update, context: ContextTypes.DEFAUL
 
                 # 2. History Results
                 for i, analysis in enumerate(analysis_history, 1):
-                    detailed_res = analysis.get('result', '')
-                    test_name = analysis['test']
-                    
-                    narrative = f"Analysis {i}: {test_name}\nVariables: {analysis['vars']}\n{detailed_res}"
-                    
-                    # Try to get tabular data from analysis record if available
-                    # (Analyzer needs to save 'data' as dict/df in history for this to fully work, 
-                    # usually it saves strings. If 'data' key contains dict, we use it)
-                    if isinstance(analysis.get('data'), (dict, list)):
-                         stats_results.append({
-                            'type': 'table',
-                            'title': f"Table {i+1}: {test_name} Results",
-                            'data': analysis['data'],
-                            'narrative': narrative
-                         })
-                    else:
-                        stats_results.append(narrative)
+                    try:
+                        # Ensure analysis is a dict
+                        if not isinstance(analysis, dict):
+                            continue
+                            
+                        detailed_res = analysis.get('result', '')
+                        test_name = analysis.get('test', f'Analysis {i}')
+                        vars_str = analysis.get('vars', 'N/A')
+                        
+                        narrative = f"Analysis {i}: {test_name}\nVariables: {vars_str}\n{detailed_res}"
+                        
+                        # Try to get tabular data
+                        data_content = analysis.get('data')
+                        if isinstance(data_content, (dict, list)):
+                             stats_results.append({
+                                'type': 'table',
+                                'title': f"Table {i+1}: {test_name} Results",
+                                'data': data_content,
+                                'narrative': narrative
+                             })
+                        else:
+                            stats_results.append(narrative)
+                    except Exception as loop_e:
+                        print(f"Skipping analysis {i} due to error: {loop_e}")
+                        continue
                 
                 # Gather visuals
                 visuals_history = context.user_data.get('visuals_history', [])
                 
                 # Generate AI discussion
-                interpreter = AIInterpreter()
-                discussion = await interpreter.generate_discussion(
-                    title=context.user_data.get('research_title', 'Statistical Analysis'),
-                    objectives=context.user_data.get('research_objectives', 'N/A'),
-                    questions=context.user_data.get('research_questions', 'N/A'),
-                    hypotheses=context.user_data.get('research_hypothesis', 'N/A'),
-                    analysis_history=analysis_history,
-                    descriptive_stats=desc_res,
-                    min_word_count=settings.get('min_word_count', 1500),
-                    max_word_count=settings.get('max_word_count', 2500)
-                )
+                try:
+                    interpreter = AIInterpreter()
+                    discussion = await interpreter.generate_discussion(
+                        title=context.user_data.get('research_title', 'Statistical Analysis'),
+                        objectives=context.user_data.get('research_objectives', 'N/A'),
+                        questions=context.user_data.get('research_questions', 'N/A'),
+                        hypotheses=context.user_data.get('research_hypothesis', 'N/A'),
+                        analysis_history=analysis_history,
+                        descriptive_stats=desc_res,
+                        min_word_count=settings.get('min_word_count', 1500),
+                        max_word_count=settings.get('max_word_count', 2500)
+                    )
+                except Exception as ai_e:
+                    print(f"AI Discussion Error: {ai_e}")
+                    discussion = "AI Discussion could not be generated."
 
                 # Generate AI Citations if requested
-                ai_refs = await interpreter.generate_references(
-                     title=context.user_data.get('research_title', ''),
-                     objectives=context.user_data.get('research_objectives', '')
-                )
-                
-                # Convert to Reference objects (simplified)
-                from src.writing.citations import Reference
-                for ar in ai_refs:
-                     # Check if reference already exists to avoid dupes? 
-                     # For now just append
-                     references.append(Reference(
-                         title=ar.get('title', ''),
-                         authors=[ar.get('authors', '')],
-                         year=ar.get('year', '2024'),
-                         source=ar.get('source', '')
-                     ))
+                try:
+                    ai_refs = await interpreter.generate_references(
+                         title=context.user_data.get('research_title', ''),
+                         objectives=context.user_data.get('research_objectives', '')
+                    )
+                    
+                    # Convert to Reference objects (simplified)
+                    from src.writing.citations import Reference
+                    for ar in ai_refs:
+                         references.append(Reference(
+                             title=ar.get('title', ''),
+                             authors=[ar.get('authors', '')],
+                             year=ar.get('year', '2024'),
+                             source=ar.get('source', '')
+                         ))
+                except Exception as ref_e:
+                    print(f"AI Citation Error: {ref_e}")
                      
                 # Add Chat Log as Appendix
                 chat_log = context.user_data.get('chat_log', [])
                 if chat_log:
                     formatted_chat = "AI Analysis Chat History:\n\n" + "\n\n".join(chat_log)
-                    # Append strictly to end or a custom section
-                    # We will append it to stats_results for now as a separate section, or handle in generator
-                    # Let's add it to stats_results as a "Chat Log" text block for simplicity in IMRAD
                     stats_results.append(formatted_chat)
 
                 
@@ -2156,7 +2163,9 @@ async def manuscript_review_handler(update: Update, context: ContextTypes.DEFAUL
                 await show_action_menu(update, "✅ Manuscript exported successfully!")
                 
             except Exception as e:
-                await update.message.reply_text(f"⚠️ Error: {str(e)[:200]}")
+                import traceback
+                traceback.print_exc()
+                await update.message.reply_text(f"⚠️ Error: {type(e).__name__}: {str(e)}")
                 await show_action_menu(update)
             
             context.user_data['formatting_step'] = None
@@ -3180,6 +3189,146 @@ async def save_project_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     # Default
     return SAVE_PROJECT
 
+
+
+# ---------------------------------------------------
+#  Advanced Chart Configuration Handlers
+# ---------------------------------------------------
+
+async def chart_options_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Display the chart configuration menu."""
+    config = context.user_data.get('chart_config', {})
+    
+    # Toggle states
+    grid_state = "✅" if config.get('grid') else "⬜"
+    legend_state = "✅" if config.get('legend') else "⬜"
+    labels_state = "✅" if config.get('data_labels') else "⬜"
+    
+    # Text states
+    title_text = config.get('title', 'Set Title')[:15] + "..." if len(config.get('title', '')) > 15 else config.get('title', 'Set Title')
+
+    text = (f"🎨 **Customize Chart**\n"
+            f"Type: `{context.user_data.get('chart_type')}`\n"
+            f"Variable: `{context.user_data.get('chart_var')}`\n\n"
+            f"**Current Settings:**\n"
+            f"• Title: _{config.get('title')}_\n"
+            f"• Grid: {grid_state}\n"
+            f"• Legend: {legend_state}\n"
+            f"• Data Labels: {labels_state}")
+
+    keyboard = [
+        [f"G: {grid_state} Grid", f"L: {legend_state} Legend", f"D: {labels_state} Labels"],
+        ["📝 Edit Title", "🏷️ X Label", "🏷️ Y Label"],
+        ["✅ Generate Chart", "❌ Cancel"]
+    ]
+    
+    await update.message.reply_text(
+        text,
+        reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True),
+        parse_mode='Markdown'
+    )
+    return CHART_CONFIG
+
+async def chart_config_input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Process chart configuration inputs."""
+    user_input = update.message.text
+    config = context.user_data.get('chart_config', {})
+    
+    # Check if we are waiting for text input
+    if context.user_data.get('awaiting_chart_text_input'):
+        field = context.user_data['awaiting_chart_text_input']
+        config[field] = user_input
+        context.user_data['chart_config'] = config
+        context.user_data['awaiting_chart_text_input'] = None # Reset
+        return await chart_options_handler(update, context)
+
+    # Toggle Logic
+    if "Grid" in user_input:
+        config['grid'] = not config.get('grid', False)
+    elif "Legend" in user_input:
+        config['legend'] = not config.get('legend', False)
+    elif "Labels" in user_input:
+        config['data_labels'] = not config.get('data_labels', False)
+        
+    # Text Inputs
+    elif user_input == "📝 Edit Title":
+        context.user_data['awaiting_chart_text_input'] = 'title'
+        await update.message.reply_text("⌨️ **Enter new chart title:**", reply_markup=ReplyKeyboardRemove())
+        return CHART_CONFIG
+    elif user_input == "🏷️ X Label":
+        context.user_data['awaiting_chart_text_input'] = 'xlabel'
+        await update.message.reply_text("⌨️ **Enter X-axis label:**", reply_markup=ReplyKeyboardRemove())
+        return CHART_CONFIG
+    elif user_input == "🏷️ Y Label":
+        context.user_data['awaiting_chart_text_input'] = 'ylabel'
+        await update.message.reply_text("⌨️ **Enter Y-axis label:**", reply_markup=ReplyKeyboardRemove())
+        return CHART_CONFIG
+
+    # Actions
+    elif user_input == "✅ Generate Chart":
+        await update.message.reply_text("🎨 Generating custom chart...")
+        try:
+            df = FileManager.get_active_dataframe(context.user_data.get('file_path'))
+            chart_type = context.user_data.get('chart_type')
+            var = context.user_data.get('chart_var')
+            
+            path = None
+            if "Bar" in chart_type:
+                path = Visualizer.create_bar_chart(df, var, config=config)
+            elif "Pie" in chart_type:
+                path = Visualizer.create_pie_chart(df, var, config=config)
+            elif "Line" in chart_type:
+                 # Adapt for single variable line chart (Trend of counts)
+                counts = df[var].value_counts().sort_index().reset_index()
+                counts.columns = [var, 'Count']
+                path = Visualizer.create_line_chart(counts, x=var, y='Count', config=config)
+            
+            if path:
+                # Capture data for manuscript appendix "Editable Data"
+                chart_data = None
+                try:
+                    if "Bar" in chart_type or "Pie" in chart_type:
+                        if "Bar" in chart_type and not df.empty:
+                            # Replicate logic for data capture
+                            # This is a bit duplicative but robust without refactoring Visualizer entirely
+                             if df[var].dtype.kind in 'fi': # numeric?
+                                 chart_data = df.groupby(var).mean().reset_index().to_dict()
+                             else:
+                                 chart_data = df[var].value_counts().reset_index().to_dict()
+                        elif "Pie" in chart_type and not df.empty:
+                             chart_data = df[var].value_counts().reset_index().to_dict()
+                    elif "Line" in chart_type:
+                        # For line chart logic used above
+                         chart_data = counts.to_dict()
+                except:
+                    pass
+
+                await update.message.reply_photo(photo=open(path, 'rb'), caption=f"📊 {config.get('title')}")
+                
+                if 'visuals_history' not in context.user_data: 
+                    context.user_data['visuals_history'] = []
+                
+                # Store rich object instead of just path
+                context.user_data['visuals_history'].append({
+                    'path': path,
+                    'title': config.get('title'),
+                    'type': chart_type,
+                    'data': chart_data
+                })
+                
+        except Exception as e:
+            await update.message.reply_text(f"⚠️ Error: {e}")
+        
+        await show_action_menu(update)
+        return ACTION
+
+    elif user_input == "❌ Cancel":
+        await show_action_menu(update)
+        return ACTION
+
+    # Save Update
+    context.user_data['chart_config'] = config
+    return await chart_options_handler(update, context)
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Operation cancelled.", reply_markup=ReplyKeyboardRemove())

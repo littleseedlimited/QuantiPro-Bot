@@ -500,21 +500,46 @@ class ManuscriptGenerator:
             run2 = p.add_run(", ".join(keywords))
             run2.italic = True
     
-    def _add_figures(self, images: List[str]):
-        """Add figures section."""
+    def _add_figures(self, images: List[Any]):
+        """Add figures section with captions and data tables."""
         self.doc.add_heading("Figures", level=1)
         
-        for i, img_path in enumerate(images, 1):
+        for i, item in enumerate(images, 1):
+            # Resolve path and metadata
+            img_path = item
+            title = ""
+            chart_data = None
+            
+            if isinstance(item, dict):
+                img_path = item.get('path')
+                title = item.get('title', '')
+                chart_data = item.get('data')
+            
+            # Default title if missing
+            if not title:
+                title = os.path.basename(img_path)
+            
             if img_path and os.path.exists(img_path):
                 try:
                     self.doc.add_picture(img_path, width=Inches(6.0))
                     last_p = self.doc.paragraphs[-1]
                     last_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                     
+                    # Formal Caption: Figure X: Title
                     caption = self.doc.add_paragraph()
-                    run = caption.add_run(f"Figure {i}: {os.path.basename(img_path)}")
+                    run = caption.add_run(f"Figure {i}: {title}")
                     run.italic = True
+                    run.bold = True
                     caption.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    
+                    self.doc.add_paragraph() # Spacer
+                    
+                    # Add Data Table if available (Editable workaround)
+                    if chart_data:
+                        self._add_table(chart_data, title=f"Data for Figure {i}")
+                    
+                    self.doc.add_paragraph() # Spacer
+                    
                 except Exception as e:
                     self._add_paragraph(f"[Error embedding figure {i}: {e}]")
     
