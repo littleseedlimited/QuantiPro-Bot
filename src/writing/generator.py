@@ -499,6 +499,62 @@ class ManuscriptGenerator:
             run1.bold = True
             run2 = p.add_run(", ".join(keywords))
             run2.italic = True
+
+    def _add_table(self, data: Any, title: str = ""):
+        """Add a table to the document from dict/list data."""
+        if not data: return
+        
+        try:
+            # Convert various inputs to list of dicts (records)
+            import pandas as pd
+            if isinstance(data, pd.DataFrame):
+                df = data
+            elif isinstance(data, list):
+                df = pd.DataFrame(data)
+            elif isinstance(data, dict):
+                df = pd.DataFrame(data)
+            else:
+                return # Can't tabulate
+            
+            if df.empty: return
+
+            # Add title
+            if title:
+                p = self.doc.add_paragraph()
+                run = p.add_run(title)
+                run.bold = True
+                run.italic = True
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            
+            # Create Table
+            rows, cols = df.shape
+            table = self.doc.add_table(rows=rows+1, cols=cols)
+            table.style = 'Table Grid'
+            
+            # Header
+            hdr_cells = table.rows[0].cells
+            for i, col_name in enumerate(df.columns):
+                hdr_cells[i].text = str(col_name)
+                hdr_cells[i].paragraphs[0].runs[0].bold = True
+            
+            # Rows
+            for i, row in enumerate(df.itertuples(index=False)):
+                row_cells = table.rows[i+1].cells
+                for j, val in enumerate(row):
+                    # Format numbers nicely
+                    if isinstance(val, (float, int)):
+                        if isinstance(val, float):
+                             txt = f"{val:.2f}"
+                        else:
+                             txt = str(val)
+                    else:
+                        txt = str(val)
+                    row_cells[j].text = txt
+                    
+            self.doc.add_paragraph() # Spacer
+            
+        except Exception as e:
+            self._add_paragraph(f"[Table Error: {e}]")
     
     def _add_figures(self, images: List[Any]):
         """Add figures section with captions and data tables."""

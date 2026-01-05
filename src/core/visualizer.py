@@ -411,6 +411,32 @@ class Visualizer:
         return Visualizer._save_plot(f'pie_{column}.png')
 
     @staticmethod
+    def create_histogram(df: pd.DataFrame, column: str, config: dict = None) -> Optional[str]:
+        """Create a histogram for numeric distribution."""
+        plt, sns = Visualizer._get_plt_sns()
+        if not plt: return None
+        
+        Visualizer._setup_figure(f'Distribution of {column}', xlabel=column, ylabel='Frequency', config=config)
+        
+        palette = config.get('palette', 'muted') if config else 'muted'
+        color = sns.color_palette(palette)[0]
+        
+        # Plot
+        sns.histplot(data=df, x=column, kde=True, color=color, alpha=0.6)
+        
+        # Options: Data Labels (for bins - tricky on hist, maybe skip or add counts to largest bins?)
+        # For histograms, standard usage is just axis labels.
+        # We can annotate the mean/median line if requested?
+        # For now, keep it simple.
+        
+        mean_val = df[column].mean()
+        plt.axvline(mean_val, color='red', linestyle='--', label=f'Mean: {mean_val:.2f}')
+        if config and config.get('legend', True):
+             plt.legend()
+             
+        return Visualizer._save_plot(f'hist_{column}.png')
+
+    @staticmethod
     def create_radar_chart(df: pd.DataFrame, columns: List[str], group_col: str = None, config: dict = None) -> Optional[str]:
         plt, sns = Visualizer._get_plt_sns()
         if not plt or len(columns) < 3: return None

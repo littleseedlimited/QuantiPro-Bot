@@ -1311,7 +1311,7 @@ async def file_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await show_action_menu(update)
             return ACTION
         
-        if choice in ['📊 Bar Chart', '🥧 Pie Chart', '📈 Line Chart']:
+        if choice in ['📊 Bar Chart', '🥧 Pie Chart', '📈 Line Chart', '📉 Histogram']:
              # Initialize Chart Config
              context.user_data['chart_type'] = choice
              context.user_data['chart_var'] = var
@@ -3143,13 +3143,26 @@ async def save_project_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         file_path = context.user_data.get('file_path', '')
         title = context.user_data.get('research_title', 'Untitled Analysis')
         
-        # Prepare context data for saving
+        # Prepare context data for saving (Sanitize for JSON)
+        clean_history = []
+        import pandas as pd
+        for item in context.user_data.get('analysis_history', []):
+            clean_item = item.copy()
+            # Convert any DataFrame in 'data' to dict
+            if 'data' in clean_item:
+                if isinstance(clean_item['data'], pd.DataFrame):
+                    clean_item['data'] = clean_item['data'].reset_index().to_dict(orient='records')
+                elif isinstance(clean_item['data'], dict):
+                     # Deep check for nested dfs? Usually flat.
+                     pass 
+            clean_history.append(clean_item)
+
         save_data = {
             'research_title': context.user_data.get('research_title', ''),
             'research_objectives': context.user_data.get('research_objectives', ''),
             'research_questions': context.user_data.get('research_questions', ''),
             'research_hypothesis': context.user_data.get('research_hypothesis', ''),
-            'analysis_history': context.user_data.get('analysis_history', []),
+            'analysis_history': clean_history,
             'references': [{'title': r.title, 'authors': r.authors, 'year': r.year, 'source': r.source} 
                           for r in context.user_data.get('references', []) if hasattr(r, 'title')],
             'columns': context.user_data.get('columns', []),
@@ -3282,6 +3295,8 @@ async def chart_config_input_handler(update: Update, context: ContextTypes.DEFAU
                 counts = df[var].value_counts().sort_index().reset_index()
                 counts.columns = [var, 'Count']
                 path = Visualizer.create_line_chart(counts, x=var, y='Count', config=config)
+            elif "Histogram" in chart_type:
+                path = Visualizer.create_histogram(df, var, config=config)
             
             if path:
                 # Capture data for manuscript appendix "Editable Data"
@@ -3300,6 +3315,9 @@ async def chart_config_input_handler(update: Update, context: ContextTypes.DEFAU
                     elif "Line" in chart_type:
                         # For line chart logic used above
                          chart_data = counts.to_dict()
+                    elif "Histogram" in chart_type:
+                        # For histogram, provide descriptive stats as the "data table"
+                        chart_data = df[var].describe().reset_index().to_dict()
                 except:
                     pass
 
