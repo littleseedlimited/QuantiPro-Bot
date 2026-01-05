@@ -138,72 +138,81 @@ async def guide_confirm_handler(update: Update, context: ContextTypes.DEFAULT_TY
         from src.core.ai_interpreter import AIInterpreter
         
         await update.message.reply_text("🔄 Calculating Descriptive Statistics...")
-        stats = Analyzer.get_descriptive_stats(df)
-        
-        # Generate text summary for history (always)
-        text_summary = Analyzer.format_stats_mobile(stats)
-        
-        # SLEEK OPTION: Generate and send image
-        from src.core.visualizer import Visualizer
-        img_path = Visualizer.create_stats_table_image(stats)
-        
-        if img_path and os.path.exists(img_path):
-            with open(img_path, 'rb') as f:
-                await update.message.reply_photo(
-                    photo=f,
-                    caption="📊 **Descriptive Statistics Table**",
-                    parse_mode='Markdown'
-                )
-        else:
-            # Fallback to text if image fails or visuals are disabled
-            await update.message.reply_text(text_summary, parse_mode='Markdown')
-        
-        # Store for export
-        context.user_data['last_analysis'] = {
-            'type': 'descriptive_stats',
-            'data': stats,
-            'title': 'Descriptive Statistics'
-        }
-        
-        # AI Interpretation with better formatting
         try:
-            interpreter = AIInterpreter()
-            ai_msg = await interpreter.interpret_results('descriptive', stats.to_dict())
-            formatted_ai = f"📖 **Interpretation:**\n\n{ai_msg}"
-            await update.message.reply_text(formatted_ai, parse_mode='Markdown')
+            stats = Analyzer.get_descriptive_stats(df)
+            
+            # Generate text summary for history (always)
+            text_summary = Analyzer.format_stats_mobile(stats)
+            
+            # SLEEK OPTION: Generate and send image
+            from src.core.visualizer import Visualizer
+            img_path = Visualizer.create_stats_table_image(stats)
+            
+            if img_path and os.path.exists(img_path):
+                with open(img_path, 'rb') as f:
+                    await update.message.reply_photo(
+                        photo=f,
+                        caption="📊 **Descriptive Statistics Table**",
+                        parse_mode='Markdown'
+                    )
+            else:
+                # Fallback to text if image fails or visuals are disabled
+                await update.message.reply_text(text_summary, parse_mode='Markdown')
+            
+            # Store for export
+            context.user_data['last_analysis'] = {
+                'type': 'descriptive_stats',
+                'data': stats,
+                'title': 'Descriptive Statistics'
+            }
+            
+            # AI Interpretation with better formatting
+            try:
+                interpreter = AIInterpreter()
+                ai_msg = await interpreter.interpret_results('descriptive', stats.to_dict())
+                formatted_ai = f"📖 **Interpretation:**\n\n{ai_msg}"
+                await update.message.reply_text(formatted_ai, parse_mode='Markdown')
+            except Exception as e:
+                pass  # Silently skip if AI interpretation fails
+    
+            # Store for history (use text_summary, not undefined msg)
+            if 'analysis_history' not in context.user_data: context.user_data['analysis_history'] = []
+            context.user_data['analysis_history'].append({
+                'test': 'Descriptive Statistics',
+                'vars': ', '.join(stats.index.tolist()),
+                'result': text_summary,
+                'data': stats.to_dict()
+            })
+            
+            # Export to Excel immediately for convenience
+            excel_path = f"data/descriptive_stats_{update.effective_user.id}.xlsx"
+            try:
+                stats.to_excel(excel_path)
+                with open(excel_path, 'rb') as f:
+                    await update.message.reply_document(
+                        document=f,
+                        filename="Descriptive_Statistics.xlsx",
+                        caption="📥 **Your Descriptive Statistics (Excel)**\nYou can edit this file directly."
+                    )
+            except Exception as e:
+                pass  # Silently continue if export fails
+    
+            await update.message.reply_text(
+                "✅ Done! What would you like to do next?", 
+                reply_markup=ReplyKeyboardMarkup([
+                    ['📉 Describe & Explore', '🆚 Hypothesis Tests'],
+                    ['🔗 Relationships & Models', '◀️ Back to Menu']
+                ], one_time_keyboard=True, resize_keyboard=True)
+            )
+            return ACTION
         except Exception as e:
-            pass  # Silently skip if AI interpretation fails
+            import traceback
+            traceback.print_exc()
+            await update.message.reply_text(f"⚠️ An error occurred during analysis: {str(e)}")
+            from src.bot.handlers import show_action_menu
+            await show_action_menu(update)
+            return ACTION
 
-        # Store for history (use text_summary, not undefined msg)
-        if 'analysis_history' not in context.user_data: context.user_data['analysis_history'] = []
-        context.user_data['analysis_history'].append({
-            'test': 'Descriptive Statistics',
-            'vars': ', '.join(stats.index.tolist()),
-            'result': text_summary,
-            'data': stats.to_dict()
-        })
-        
-        # Export to Excel immediately for convenience
-        excel_path = f"data/descriptive_stats_{update.effective_user.id}.xlsx"
-        try:
-            stats.to_excel(excel_path)
-            with open(excel_path, 'rb') as f:
-                await update.message.reply_document(
-                    document=f,
-                    filename="Descriptive_Statistics.xlsx",
-                    caption="📥 **Your Descriptive Statistics (Excel)**\nYou can edit this file directly."
-                )
-        except Exception as e:
-            pass  # Silently continue if export fails
-
-        await update.message.reply_text(
-            "✅ Done! What would you like to do next?", 
-            reply_markup=ReplyKeyboardMarkup([
-                ['📉 Describe & Explore', '🆚 Hypothesis Tests'],
-                ['🔗 Relationships & Models', '◀️ Back to Menu']
-            ], one_time_keyboard=True, resize_keyboard=True)
-        )
-        return ACTION
     elif test_key == 'frequencies':
         context.user_data['awaiting_tabulation_var'] = True
         all_cols = context.user_data.get('columns', [])

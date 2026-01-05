@@ -463,6 +463,41 @@ class Visualizer:
         return Visualizer._save_plot(f'violin_{x}_{y}.png')
 
     @staticmethod
+    def create_stats_table_image(stats_df: pd.DataFrame, title: str = "Descriptive Statistics") -> Optional[str]:
+        """Render a dataframe as a static image table."""
+        plt, sns = Visualizer._get_plt_sns()
+        if not plt: return None
+        
+        try:
+            # Calculate size based on rows/cols
+            rows, cols = stats_df.shape
+            w = max(8, cols * 1.5)
+            h = max(4, rows * 0.5 + 2)
+            
+            fig, ax = plt.subplots(figsize=(w, h))
+            ax.axis('off')
+            
+            # Create table
+            table = plt.table(cellText=stats_df.round(3).values,
+                              colLabels=stats_df.columns,
+                              rowLabels=stats_df.index,
+                              cellLoc='center',
+                              loc='center',
+                              bbox=[0, 0, 1, 0.9])
+            
+            table.auto_set_font_size(False)
+            table.set_fontsize(11)
+            table.scale(1.2, 1.2)
+            
+            plt.title(title, fontsize=16, fontweight='bold', y=0.95)
+            
+            path = Visualizer._save_plot("stats_table.png")
+            return path
+        except Exception as e:
+            print(f"Stats table error: {e}")
+            return None
+
+    @staticmethod
     def create_pair_plot(df: pd.DataFrame, columns: List[str]) -> Optional[str]:
         plt, sns = Visualizer._get_plt_sns()
         if not plt: return None
