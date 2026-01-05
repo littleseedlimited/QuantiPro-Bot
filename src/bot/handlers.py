@@ -2164,8 +2164,9 @@ async def manuscript_review_handler(update: Update, context: ContextTypes.DEFAUL
                 
             except Exception as e:
                 import traceback
-                traceback.print_exc()
-                await update.message.reply_text(f"⚠️ Error: {type(e).__name__}: {str(e)}")
+                tb = traceback.format_exc()
+                # Send first 1000 chars of traceback to user for debugging
+                await update.message.reply_text(f"⚠️ **DEBUG ERROR INFO:**\n`{tb[:1000]}`", parse_mode='Markdown')
                 await show_action_menu(update)
             
             context.user_data['formatting_step'] = None
