@@ -55,7 +55,8 @@ class Sampler:
             'method': "Cochran's Formula",
             'formula': formula_desc,
             'confidence_level': confidence_level,
-            'margin_of_error': e
+            'margin_of_error': e,
+            'population': N
         }
 
     @staticmethod

@@ -304,31 +304,46 @@ def get_detailed_explanation(result: dict) -> str:
     if "Cochran" in method:
         e = result.get('margin_of_error', 0.05)
         cl = result.get('confidence_level', '95%')
+        N = result.get('population')
+        
         z_map = {'90%': 1.645, '95%': 1.96, '99%': 2.576}
         z = z_map.get(cl, 1.96)
+        p = 0.5
+        q = 0.5
+        
+        # Calculate n0 (Infinite)
+        n0 = math.ceil(((z**2) * p * q) / (e**2))
         
         text += (
             "**1. The Logic:**\n"
-            "We used **Cochran's Formula**, which is the gold standard for creating a representative sample "
-            "when assessing proportions (percentages) in a population.\n\n"
-            "**2. The Components:**\n"
-            f"• **Confidence Level ({cl})**: This means if you repeated this study 100 times, "
-            f"{cl.replace('%','')} of them would contain the true population value. "
-            f"This corresponds to a **Z-score of {z}** in the formula.\n"
-            f"• **Margin of Error (e={e})**: This is your precision. You are willing to accept that your result is within "
-            f"±{int(e*100)}% of the true value.\n"
-            "• **p (0.5)**: We assumed maximum variability (50/50 split), which yields the most conservative (safest) sample size.\n\n"
-            "**3. The Calculation:**\n"
-            f"We squared the Z-score ({z}² ≈ {z**2:.2f}) and multiplied by variability (0.25). "
-            f"Then we divided by the error squared ({e}² = {e**2:.4f}).\n"
+            "We used **Cochran's Formula**. It starts by calculating the sample size for an infinite population, "
+            "then adjusts it if a specific population size (N) is known.\n\n"
+            
+            "**2. Step 1: Infinite Population Baseline**\n"
+            f"• Confidence (Z={z}): Squared ≈ {z**2:.2f}\n"
+            f"• Variability (p*q): 0.5 * 0.5 = 0.25\n"
+            f"• Precision (e={e}): Squared = {e**2:.4f}\n"
+            f"👉 `({z**2:.2f} * 0.25) / {e**2:.4f} ≈ {n0}` respondents.\n"
         )
         
-        if "Finite" in result.get('formula', ''):
-            N = result.get('population', 'Unknown')
+        if N and "Finite" in result.get('formula', ''):
+            # Calculate Correction
             text += (
-                f"\n**4. Finite Correction:**\n"
-                f"Since your population (N={N}) is relatively small, the initial result was adjusted downwards "
-                "because you don't need as many people to represent a smaller group."
+                f"\n**3. Step 2: Population Correction (N={N})**\n"
+                "Since we know the exact population size, we adjust the baseline down using:\n"
+                "`n = n₀ / (1 + (n₀ - 1) / N)`\n\n"
+                "Substitution:\n"
+                f"• `1 + ({n0} - 1) / {N}`\n"
+                f"• `1 + {((n0-1)/N):.4f}`\n"
+                f"👉 `{n0} / {1 + ((n0-1)/N):.4f} ≈ {result['sample_size']}` respondents.\n\n"
+                "**Conclusion:**\n"
+                f"Because your population of **{N}** is finite, we only need **{result['sample_size']}** people "
+                f"(instead of {n0}) to represent them with {cl} confidence."
+            )
+        else:
+            text += (
+                "\n**3. Conclusion:**\n"
+                f"Since the population is large or unknown, we stick to the conservative infinite calculation of **{n0}**."
             )
             
     elif "Yamane" in method:
@@ -337,33 +352,42 @@ def get_detailed_explanation(result: dict) -> str:
         
         text += (
             "**1. The Logic:**\n"
-            "We used **Taro Yamane's Formula**, a simplified method ideal for finite populations "
-            "where the size (N) is known.\n\n"
-            "**2. The Components:**\n"
-            f"• **Population (N={N})**: The total number of individuals in your study group.\n"
-            f"• **Precision (e={e})**: The margin of error (e.g., {int(e*100)}%). This determines how close your sample result will be to the true population value.\n\n"
-            "**3. The Calculation:**\n"
-            f"The formula `N / (1 + Ne²)` reduces the sample size based on the population limit. "
-            f"As N grows larger, this result approaches the standard infinite sample size, but for N={N}, accurately reflects the required count."
+            "We used **Taro Yamane's Formula**, which is designed specifically for **known (finite) populations**.\n\n"
+            
+            "**2. The Calculation (Step-by-Step):**\n"
+            f"Formula: `n = N / (1 + N(e)²)`\n\n"
+            f"**Step A: Square the Error**\n"
+            f"• `e = {e}` → `e² = {e**2:.4f}`\n\n"
+            f"**Step B: Multiply by Population ({N})**\n"
+            f"• `{N} * {e**2:.4f} = {N * (e**2):.4f}`\n\n"
+            f"**Step C: Add 1 (Denominator)**\n"
+            f"• `1 + {N * (e**2):.4f} = {1 + N * (e**2):.4f}`\n\n"
+            f"**Step D: Final Division**\n"
+            f"• `{N} / {1 + N * (e**2):.4f} ≈ {result['sample_size']}`\n\n"
+            
+            "**3. Interpretation:**\n"
+            f"From your total population of **{N}**, you need exactly **{result['sample_size']}** respondents "
+            f"to be within ±{int(e*100)}% of the truth."
         )
 
     elif "Power" in method:
         es = result.get('effect_size', 0.5)
-        
         text += (
             "**1. The Logic:**\n"
-            "We used **Power Analysis**, which calculates the sample size needed to statistically detect an effect "
-            "if one actually exists. This is crucial for experimental studies to avoid 'Type II Errors' (false negatives).\n\n"
-            "**2. The Components:**\n"
-            f"• **Effect Size ({es})**: The magnitude of the difference you expect to find. "
-            f"{'Small effects require larger samples.' if es < 0.4 else 'Large effects are easier to detect.'}\n"
-            "• **Power (0.80)**: The standard 80% probability of finding a significant difference if it exists.\n"
-            "• **Alpha (0.05)**: The 5% risk of a 'Type I Error' (false positive).\n\n"
-            "**3. Interpretation:**\n"
-            "This number ensures your study is scientifically robust. Testing fewer people would mean your results might be inconclusive purely due to lack of data."
+            "**Power Analysis** determines the sample size needed to detect a statistically significant effect "
+            "if one truly exists. It balances the risk of False Positives (Type I) and False Negatives (Type II).\n\n"
+            
+            "**2. Key Parameters:**\n"
+            f"• **Effect Size ({es})**: We are looking for a {'small' if es<=0.2 else 'medium' if es<=0.5 else 'large'} difference.\n"
+            "• **Power (80%)**: We want an 80% chance of successfully detecting this difference.\n"
+            "• **Significance (5%)**: We accept a 5% chance of a false alarm.\n\n"
+            
+            "**3. Conclusion:**\n"
+            f"To reliably detect an effect of size {es}, you need **{result['sample_size']} participants per group** "
+            f"(Total: {result.get('total_sample', result['sample_size']*2)})."
         )
         
     else:
-        text += "The calculation was performed using standard statistical formulas based on your inputs."
+        text += "The calculation was performed using standard statistical formulas."
 
     return text
