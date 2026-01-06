@@ -1520,32 +1520,36 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 
                 all_outputs = []
                 for row_var in row_vars:
-                    result = Analyzer.crosstab(
-                        df, row_var, col_var,
-                        show_row_pct=display.get('row_pct', False),
-                        show_col_pct=display.get('col_pct', False),
-                        show_total_pct=display.get('total_pct', False)
-                    )
+                    # 1. Visual: Create Heatmap
+                    heatmap_path = Visualizer.create_crosstab_heatmap(df, row_var, col_var)
                     
-                    if "error" in result:
-                        all_outputs.append(f"⚠️ **Error ({row_var}):** {result['error']}")
-                        continue
-
-                    mobile_fmt = Analyzer.format_crosstab_mobile(result)
-                    all_outputs.append(mobile_fmt)
-                    
-                    # Also append raw totals for advanced review if Simple mode
-                    if context.user_data.get('crosstab_mode') == 'simple':
-                         all_outputs.append(f"\n📊 **Total Obs:** {result['n_observations']}")
-
-                # Send all generated tables
-                for msg_out in all_outputs:
-                    if len(msg_out) > 4000:
-                        parts = [msg_out[i:i+4000] for i in range(0, len(msg_out), 4000)]
-                        for p in parts:
-                             await update.message.reply_text(p)
+                    if heatmap_path:
+                        await update.message.reply_photo(
+                            photo=open(heatmap_path, 'rb'),
+                            caption=f"📊 **Crosstab: {row_var} × {col_var}**"
+                        )
                     else:
-                        await update.message.reply_text(msg_out)
+                        await update.message.reply_text(f"⚠️ Could not generate heatmap for {row_var}")
+
+                    # 2. Data: Get detailed stats for Export
+                    # We compute all percentages for the Excel export as requested
+                    ct_counts = pd.crosstab(df[row_var], df[col_var], margins=True, margins_name='Total')
+                    ct_row = pd.crosstab(df[row_var], df[col_var], normalize='index', margins=True, margins_name='Total').round(4) * 100
+                    ct_col = pd.crosstab(df[row_var], df[col_var], normalize='columns', margins=True, margins_name='Total').round(4) * 100
+                    
+                    # Store detailed data for export logic
+                    # We might need a combined dataframe for Excel, but for now let's store counts 
+                    # and we can generate % in export_handler if needed, 
+                    # OR we store a dict of DFs?
+                    # The current export handler likely expects 'data' to be a single DF or Dict.
+                    # We will store the Counts (Standard) but maybe trigger a special export mode?
+                    # Let's start with Counts as primary, but user requested all % in export.
+                    # We will assume export handler generates what it needs, or we provide a rich "result" string.
+                    
+                    # For consistency with current export handler:
+                    result = Analyzer.crosstab(df, row_var, col_var, show_row_pct=True, show_col_pct=True, show_total_pct=True)
+                    
+                # (Loop continues to history storage below)
 
                 # Store last result for export
                 context.user_data['last_analysis'] = {
@@ -3224,20 +3228,23 @@ async def chart_options_handler(update: Update, context: ContextTypes.DEFAULT_TY
     grid_state = "✅" if config.get('grid') else "⬜"
     legend_state = "✅" if config.get('legend') else "⬜"
     labels_state = "✅" if config.get('data_labels') else "⬜"
+    orient_state = "Horizontal ↔️" if config.get('orientation') == 'h' else "Vertical ↕️"
     
     # Text states
-    title_text = config.get('title', 'Set Title')[:15] + "..." if len(config.get('title', '')) > 15 else config.get('title', 'Set Title')
+    title_text = config.get('title', 'Set Title')
 
     text = (f"🎨 **Customize Chart**\n"
             f"Type: `{context.user_data.get('chart_type')}`\n"
             f"Variable: `{context.user_data.get('chart_var')}`\n\n"
             f"**Current Settings:**\n"
-            f"• Title: _{config.get('title')}_\n"
+            f"• Title: _{title_text}_\n"
+            f"• Orientation: {orient_state}\n"
             f"• Grid: {grid_state}\n"
             f"• Legend: {legend_state}\n"
             f"• Data Labels: {labels_state}")
 
     keyboard = [
+        [f"🔄 {orient_state}"],
         [f"G: {grid_state} Grid", f"L: {legend_state} Legend", f"D: {labels_state} Labels"],
         ["📝 Edit Title", "🏷️ X Label", "🏷️ Y Label"],
         ["✅ Generate Chart", "❌ Cancel"]
@@ -3270,6 +3277,9 @@ async def chart_config_input_handler(update: Update, context: ContextTypes.DEFAU
         config['legend'] = not config.get('legend', False)
     elif "Labels" in user_input:
         config['data_labels'] = not config.get('data_labels', False)
+    elif "Horizontal" in user_input or "Vertical" in user_input:
+        current = config.get('orientation', 'v')
+        config['orientation'] = 'v' if current == 'h' else 'h'
         
     # Text Inputs
     elif user_input == "📝 Edit Title":

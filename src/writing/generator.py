@@ -502,7 +502,11 @@ class ManuscriptGenerator:
 
     def _add_table(self, data: Any, title: str = ""):
         """Add a table to the document from dict/list data."""
-        if not data: return
+        # Safe empty check
+        if data is None: return
+        import pandas as pd
+        if isinstance(data, pd.DataFrame) and data.empty: return
+        if isinstance(data, (list, dict)) and not data: return
         
         try:
             # Convert various inputs to list of dicts (records)

@@ -297,53 +297,103 @@ class Visualizer:
         plt, sns = Visualizer._get_plt_sns()
         if not plt: return None
         Visualizer._apply_config(config)
+        return Visualizer._save_plot(f'bar_{x}_{y or "count"}.png')
+
+    @staticmethod
+    def create_crosstab_heatmap(df: pd.DataFrame, row: str, col: str, config: dict = None) -> Optional[str]:
+        """Create a styled heatmap/table for crosstabs."""
+        plt, sns = Visualizer._get_plt_sns()
+        if not plt: return None
         
-        # Determine data size for dynamic plotting
+        # Calculate Crosstab
+        ct = pd.crosstab(df[row], df[col])
+        
+        # Figure setup
+        config = config or {}
+        Visualizer._setup_figure(f'{row} x {col}', xlabel=col, ylabel=row, config=config)
+        
+        # Heatmap
+        palette = config.get('palette', 'YlGnBu')  # Heatmap friendly default
+        sns.heatmap(ct, annot=True, fmt='d', cmap=palette, cbar=False, 
+                   annot_kws={'size': 12, 'weight': 'bold'})
+        
+        plt.title(f'Crosstabulation: {row} vs {col}', fontsize=14, pad=20)
+        plt.xticks(rotation=45)
+        plt.yticks(rotation=0)
+        
+        return Visualizer._save_plot(f'crosstab_{row}_{col}.png')
+
+    @staticmethod
+    def create_bar_chart(df: pd.DataFrame, x: str, y: str = None, config: dict = None) -> Optional[str]:
+        plt, sns = Visualizer._get_plt_sns()
+        if not plt: return None
+        
+        config = config or {}
+        orientation = config.get('orientation', 'v') # v or h
+        
+        # Determine data size
         n_cats = df[x].nunique()
-        width = max(10, min(24, n_cats * 0.6))
+        base_w = max(10, min(24, n_cats * 0.6))
         
         if config and 'size' in config:
-             final_size = Visualizer._get_figsize(config['size'], width, 8)
+             final_size = Visualizer._get_figsize(config['size'], base_w, 8)
              plt.figure(figsize=final_size)
         else:
-             plt.figure(figsize=(width, 8))
+             plt.figure(figsize=(base_w, 8))
              
-        palette = config.get('palette', 'viridis') if config else 'viridis'
+        palette = config.get('palette', 'viridis')
         
+        # Prepare Data
         if y:
             # Mean bar chart
             chart_data = df.groupby(x)[y].mean().sort_values(ascending=False).reset_index()
-            ax = sns.barplot(data=chart_data, x=x, y=y, palette=palette)
-            plt.ylabel(f'Mean {y}', fontsize=12)
+            val_col = y
+            cat_col = x
+            lbl = f'Mean {y}'
             title = f'Mean {y} by {x}'
         else:
             # Count bar chart
             chart_data = df[x].value_counts().reset_index()
             chart_data.columns = [x, 'Count']
-            ax = sns.barplot(data=chart_data, x=x, y='Count', palette=palette)
-            plt.ylabel('Count', fontsize=12)
+            val_col = 'Count'
+            cat_col = x
+            lbl = 'Count'
             title = f'Count by {x}'
-            
+
+        # Plot based on orientation
+        if orientation == 'h':
+            # Swap x/y
+            ax = sns.barplot(data=chart_data, x=val_col, y=cat_col, palette=palette)
+            plt.xlabel(lbl)
+            plt.ylabel(cat_col)
+        else:
+            ax = sns.barplot(data=chart_data, x=cat_col, y=val_col, palette=palette)
+            plt.ylabel(lbl)
+            plt.xlabel(cat_col)
+            plt.xticks(rotation=45, ha='right')
+
+        # Custom Title/Labels
         plt.title(config.get('title', title), fontsize=16, fontweight='bold', pad=20)
-        plt.xlabel(config.get('xlabel', x), fontsize=12)
-        plt.ylabel(config.get('ylabel', f'Mean {y}' if y else 'Count'), fontsize=12)
+        if config.get('xlabel'): plt.xlabel(config['xlabel'])
+        if config.get('ylabel'): plt.ylabel(config['ylabel'])
         
-        # Auto-rotate labels if many items or long labels
-        plt.xticks(rotation=45, ha='right')
-        
-        # Options: Data Labels
-        if config and config.get('data_labels', False):
+        # Data Labels & Axis Cleaning
+        if config.get('data_labels', False):
             for container in ax.containers:
                 ax.bar_label(container, fmt='%.2f' if y else '%d', padding=3)
-        
-        # Options: Legend
-        if config and config.get('legend', False):
-            plt.legend()
-        
-        # Grid provided by _apply_config/setup if managed there, but bar chart uses direct sns/plt here.
-        # Ensure grid matches config
-        if config and config.get('grid', False):
-             plt.grid(True, axis='y', alpha=0.3)
+            
+            # Use requested: "If data label is selected, then remove Y-axis" (or value axis)
+            if orientation == 'h':
+                ax.get_xaxis().set_visible(False) # Value axis is X for horizontal
+                sns.despine(left=True, bottom=True)
+            else:
+                ax.get_yaxis().set_visible(False) # Value axis is Y for vertical
+                sns.despine(left=True, bottom=True)
+        else:
+            # Standard grid/spine
+             if config.get('grid', False):
+                 axis = 'x' if orientation == 'h' else 'y'
+                 plt.grid(True, axis=axis, alpha=0.3)
 
         return Visualizer._save_plot(f'bar_{x}_{y or "count"}.png')
 
