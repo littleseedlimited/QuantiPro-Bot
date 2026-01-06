@@ -340,6 +340,16 @@ def get_detailed_explanation(result: dict) -> str:
                 f"Because your population of **{N}** is finite, we only need **{result['sample_size']}** people "
                 f"(instead of {n0}) to represent them with {cl} confidence."
             )
+            
+            # Educational Note for Large N
+            if isinstance(N, int) and N > 50000:
+                text += (
+                    f"\n\n💡 **Why 385?**\n"
+                    f"You calculated for a large population ({N}). In statistics, once a population exceeds ~20,000, "
+                    "the sample size **plateaus** at 385 (for 95% confidence). Adding more population doesn't require "
+                    "adding more sample, just like testing a spoonful of soup tells you the taste of the whole pot, "
+                    "regardless of whether the pot is 10 liters or 1000 liters."
+                )
         else:
             text += (
                 "\n**3. Conclusion:**\n"
