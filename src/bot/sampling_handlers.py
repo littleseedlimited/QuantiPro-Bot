@@ -270,28 +270,100 @@ async def display_result(update: Update, result: dict):
     if 'error' in result:
         await update.message.reply_text(f"❌ Error: {result['error']}")
     else:
-        # Construct Educational Message
+        # 1. Main Result
         msg = f"✅ **Calculation Result**\n\n"
         msg += f"🔢 **Sample Size (n): {result['sample_size']}**\n\n"
         
-        msg += f"📘 **Method Used:** {result['method']}\n"
+        if result.get('total_sample'):
+             msg += f"👥 **Total Sample Required:** {result['total_sample']} (split between groups)\n"
+
+        msg += f"📘 **Method:** {result['method']}\n"
         if result.get('population'):
             msg += f"👥 **Population (N):** {result['population']}\n"
         
-        msg += "\n📝 **How it was calculated:**\n"
-        msg += f"`{result['formula']}`\n\n"
+        # 2. Formula Snippet
+        msg += f"\n`{result['formula']}`\n\n"
         
-        msg += "**Values Used:**\n"
-        if 'confidence_level' in result:
-            msg += f"• Confidence Level: {result['confidence_level']}\n"
-        if 'margin_of_error' in result:
-            msg += f"• Margin of Error (e): {result['margin_of_error']}\n"
-        if 'effect_size' in result:
-            msg += f"• Effect Size: {result['effect_size']}\n"
-            
         await update.message.reply_text(msg, parse_mode='Markdown')
+        
+        # 3. Comprehensive Explanation
+        explanation = get_detailed_explanation(result)
+        await update.message.reply_text(explanation, parse_mode='Markdown')
         
     await update.message.reply_text(
         "Use /start to Calculate Another or Analyse Data",
         reply_markup=ReplyKeyboardRemove()
     )
+
+def get_detailed_explanation(result: dict) -> str:
+    """Generates a comprehensive educational explanation of the result."""
+    method = result.get('method', '')
+    
+    text = "🎓 **Comprehensive Explanation**\n\n"
+    
+    if "Cochran" in method:
+        e = result.get('margin_of_error', 0.05)
+        cl = result.get('confidence_level', '95%')
+        z_map = {'90%': 1.645, '95%': 1.96, '99%': 2.576}
+        z = z_map.get(cl, 1.96)
+        
+        text += (
+            "**1. The Logic:**\n"
+            "We used **Cochran's Formula**, which is the gold standard for creating a representative sample "
+            "when assessing proportions (percentages) in a population.\n\n"
+            "**2. The Components:**\n"
+            f"• **Confidence Level ({cl})**: This means if you repeated this study 100 times, "
+            f"{cl.replace('%','')} of them would contain the true population value. "
+            f"This corresponds to a **Z-score of {z}** in the formula.\n"
+            f"• **Margin of Error (e={e})**: This is your precision. You are willing to accept that your result is within "
+            f"±{int(e*100)}% of the true value.\n"
+            "• **p (0.5)**: We assumed maximum variability (50/50 split), which yields the most conservative (safest) sample size.\n\n"
+            "**3. The Calculation:**\n"
+            f"We squared the Z-score ({z}² ≈ {z**2:.2f}) and multiplied by variability (0.25). "
+            f"Then we divided by the error squared ({e}² = {e**2:.4f}).\n"
+        )
+        
+        if "Finite" in result.get('formula', ''):
+            N = result.get('population', 'Unknown')
+            text += (
+                f"\n**4. Finite Correction:**\n"
+                f"Since your population (N={N}) is relatively small, the initial result was adjusted downwards "
+                "because you don't need as many people to represent a smaller group."
+            )
+            
+    elif "Yamane" in method:
+        N = result.get('population', 'N/A')
+        e = result.get('margin_of_error', 0.05)
+        
+        text += (
+            "**1. The Logic:**\n"
+            "We used **Taro Yamane's Formula**, a simplified method ideal for finite populations "
+            "where the size (N) is known.\n\n"
+            "**2. The Components:**\n"
+            f"• **Population (N={N})**: The total number of individuals in your study group.\n"
+            f"• **Precision (e={e})**: The margin of error (e.g., {int(e*100)}%). This determines how close your sample result will be to the true population value.\n\n"
+            "**3. The Calculation:**\n"
+            f"The formula `N / (1 + Ne²)` reduces the sample size based on the population limit. "
+            f"As N grows larger, this result approaches the standard infinite sample size, but for N={N}, accurately reflects the required count."
+        )
+
+    elif "Power" in method:
+        es = result.get('effect_size', 0.5)
+        
+        text += (
+            "**1. The Logic:**\n"
+            "We used **Power Analysis**, which calculates the sample size needed to statistically detect an effect "
+            "if one actually exists. This is crucial for experimental studies to avoid 'Type II Errors' (false negatives).\n\n"
+            "**2. The Components:**\n"
+            f"• **Effect Size ({es})**: The magnitude of the difference you expect to find. "
+            f"{'Small effects require larger samples.' if es < 0.4 else 'Large effects are easier to detect.'}\n"
+            "• **Power (0.80)**: The standard 80% probability of finding a significant difference if it exists.\n"
+            "• **Alpha (0.05)**: The 5% risk of a 'Type I Error' (false positive).\n\n"
+            "**3. Interpretation:**\n"
+            "This number ensures your study is scientifically robust. Testing fewer people would mean your results might be inconclusive purely due to lack of data."
+        )
+        
+    else:
+        text += "The calculation was performed using standard statistical formulas based on your inputs."
+
+    return text

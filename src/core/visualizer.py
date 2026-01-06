@@ -377,10 +377,18 @@ class Visualizer:
         if config.get('xlabel'): plt.xlabel(config['xlabel'])
         if config.get('ylabel'): plt.ylabel(config['ylabel'])
         
+        
         # Data Labels & Axis Cleaning
         if config.get('data_labels', False):
+            label_pos = config.get('label_pos', 'edge')
+            
+            # Map user friendly pos to matplotlib arg
+            # 'edge' is standard. 'center' is standard. 'base' is not direct.
+            mpl_pos = 'center' if label_pos == 'center' else 'edge'
+            color = 'white' if label_pos == 'center' else 'black'
+            
             for container in ax.containers:
-                ax.bar_label(container, fmt='%.2f' if y else '%d', padding=3)
+                ax.bar_label(container, fmt='%.2f' if y else '%d', padding=3, label_type=mpl_pos, color=color, fontweight='bold')
             
             # Use requested: "If data label is selected, then remove Y-axis" (or value axis)
             if orientation == 'h':

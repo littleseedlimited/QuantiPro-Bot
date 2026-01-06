@@ -207,12 +207,10 @@ def main():
     # Debug Handler (Group -1 runs for everything)
     application.add_handler(MessageHandler(filters.ALL, debug_handler), group=-1)
     
-    async def catch_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if update.message:
-            print(f"DEBUG: Unhandled message in group 0: {update.message.text}")
-    
+    from src.bot.handlers import ai_chat_handler
     application.add_handler(conv_handler)
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, catch_all))
+    # Use AI Chat for unhandled text (Assistant Mode)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ai_chat_handler))
     application.add_handler(CommandHandler('plans', plans_handler))
     application.add_handler(CommandHandler('myplan', myplan_handler))
     application.add_handler(CommandHandler('profile', profile_handler))

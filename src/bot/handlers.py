@@ -1338,8 +1338,72 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ACTION
 
 
-    # Handle crosstab row variable selection
-    elif context.user_data.get('awaiting_crosstab_row'):
+    # Handle Frequency variable selection
+    elif context.user_data.get('awaiting_freq_vars'):
+        all_cols = context.user_data.get('columns', [])
+        
+        if choice == '◀️ Back to Menu':
+             context.user_data['awaiting_freq_vars'] = False
+             await show_action_menu(update)
+             return ACTION
+
+        if choice == '✅ Done Selecting':
+             context.user_data['awaiting_freq_vars'] = False
+             vars = context.user_data.get('freq_vars', [])
+             if not vars:
+                  await update.message.reply_text("⚠️ No variables selected.")
+                  return ACTION
+             
+             await update.message.reply_text(f"📊 Analyzing frequencies for {len(vars)} variables...")
+             
+             for var in vars:
+                  # Calculate Freqs
+                  try:
+                      counts = df[var].value_counts().sort_index()
+                      pcts = df[var].value_counts(normalize=True).sort_index() * 100
+                      res_df = pd.DataFrame({'Count': counts, 'Percent': pcts.round(2)})
+                      res_df.index.name = var
+                      
+                      # Send table image
+                      try:
+                          from src.core.visualizer import Visualizer
+                          img_path = Visualizer.create_stats_table_image(res_df, title=f"Frequency: {var}")
+                          if img_path:
+                               await update.message.reply_photo(photo=open(img_path, 'rb'))
+                          else:
+                               await update.message.reply_text(f"**{var}**\n{res_df.to_string()}", parse_mode='Markdown')
+                      except:
+                          await update.message.reply_text(f"**{var}**\n{res_df.to_string()}", parse_mode='Markdown')
+                          
+                      # Store in history
+                      if 'analysis_history' not in context.user_data: context.user_data['analysis_history'] = []
+                      context.user_data['analysis_history'].append({
+                          'test': 'Frequency',
+                          'vars': var,
+                          'result': res_df.to_string(),
+                          'data': res_df.reset_index().to_dict() # Serialize
+                      })
+                  except Exception as e:
+                      await update.message.reply_text(f"⚠️ Error analyzing {var}: {str(e)}")
+
+             await show_action_menu(update, "✅ Analysis Complete!")
+             return ACTION
+        
+        # Selection Logic
+        clean = choice.replace('✅ ', '')
+        if clean not in all_cols:
+             await update.message.reply_text("⚠️ Invalid variable. Please select from the keyboard.")
+             return ACTION
+             
+        if 'freq_vars' not in context.user_data: context.user_data['freq_vars'] = []
+        if clean not in context.user_data['freq_vars']:
+             context.user_data['freq_vars'].append(clean)
+             
+        # Re-show keyboard
+        selected = context.user_data['freq_vars']
+        markup = get_column_markup(all_cols, extra_buttons=['✅ Done Selecting'], selected_items=selected)
+        await update.message.reply_text(f"✅ Selected: {', '.join(selected)}\nSelect more or tap 'Done':", reply_markup=markup)
+        return ACTION
         all_cols = context.user_data.get('columns', [])
         mode = context.user_data.get('crosstab_mode', 'simple')
         
@@ -3230,6 +3294,10 @@ async def chart_options_handler(update: Update, context: ContextTypes.DEFAULT_TY
     labels_state = "✅" if config.get('data_labels') else "⬜"
     orient_state = "Horizontal ↔️" if config.get('orientation') == 'h' else "Vertical ↕️"
     
+    # Value states
+    palette = config.get('palette', 'viridis')
+    label_pos = config.get('label_pos', 'edge')
+    
     # Text states
     title_text = config.get('title', 'Set Title')
 
@@ -3239,12 +3307,13 @@ async def chart_options_handler(update: Update, context: ContextTypes.DEFAULT_TY
             f"**Current Settings:**\n"
             f"• Title: _{title_text}_\n"
             f"• Orientation: {orient_state}\n"
-            f"• Grid: {grid_state}\n"
-            f"• Legend: {legend_state}\n"
-            f"• Data Labels: {labels_state}")
+            f"• Palette: `{palette}`\n"
+            f"• Data Labels: {labels_state} (Pos: {label_pos})\n"
+            f"• Grid: {grid_state} | Legend: {legend_state}")
 
     keyboard = [
         [f"🔄 {orient_state}"],
+        [f"🎨 Palette: {palette}", f"📍 Label Pos: {label_pos}"],
         [f"G: {grid_state} Grid", f"L: {legend_state} Legend", f"D: {labels_state} Labels"],
         ["📝 Edit Title", "🏷️ X Label", "🏷️ Y Label"],
         ["✅ Generate Chart", "❌ Cancel"]
@@ -3280,6 +3349,24 @@ async def chart_config_input_handler(update: Update, context: ContextTypes.DEFAU
     elif "Horizontal" in user_input or "Vertical" in user_input:
         current = config.get('orientation', 'v')
         config['orientation'] = 'v' if current == 'h' else 'h'
+        
+    elif "Palette" in user_input:
+        opts = ['viridis', 'magma', 'plasma', 'Blues', 'Reds', 'Set2']
+        curr = config.get('palette', 'viridis')
+        try:
+            idx = opts.index(curr)
+            config['palette'] = opts[(idx + 1) % len(opts)]
+        except:
+            config['palette'] = 'viridis'
+
+    elif "Label Pos" in user_input:
+        opts = ['edge', 'center', 'base']
+        curr = config.get('label_pos', 'edge')
+        try:
+            idx = opts.index(curr)
+            config['label_pos'] = opts[(idx + 1) % len(opts)]
+        except:
+             config['label_pos'] = 'edge'
         
     # Text Inputs
     elif user_input == "📝 Edit Title":
@@ -3365,6 +3452,26 @@ async def chart_config_input_handler(update: Update, context: ContextTypes.DEFAU
     # Save Update
     context.user_data['chart_config'] = config
     return await chart_options_handler(update, context)
+
+async def ai_chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle free-form text with AI context awareness."""
+    user_input = update.message.text
+    
+    # Ignore short or irrelevant messages if needed, but for now respond to all
+    if len(user_input) < 2: return
+    
+    # Indicate typing
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action='typing')
+    
+    from src.core.ai_interpreter import AIInterpreter
+    interpreter = AIInterpreter()
+    
+    file_path = context.user_data.get('file_path')
+    history = context.user_data.get('analysis_history', [])
+    
+    response = await interpreter.chat(user_input, file_path=file_path, analysis_history=history)
+    
+    await update.message.reply_text(response, parse_mode='Markdown')
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Operation cancelled.", reply_markup=ReplyKeyboardRemove())

@@ -82,10 +82,31 @@ async def guide_confirm_handler(update: Update, context: ContextTypes.DEFAULT_TY
     if not test_key:
         return ACTION
 
+    # Ensure DF is loaded
     df = context.user_data.get('df')
+    if df is None:
+        file_path = context.user_data.get('file_path')
+        if file_path:
+            from src.core.file_manager import FileManager
+            try:
+                df = FileManager.get_active_dataframe(file_path)
+                context.user_data['df'] = df
+            except Exception:
+                pass
+        
+    if df is None:
+        await update.message.reply_text("⚠️ Dataset session lost or invalid. Please upload file again.")
+        return ACTION
+
     # Route to appropriate starting point based on test
     if test_key in ['ttest', 'mwu']:
         context.user_data['current_test'] = test_key
+        # Check if categorical vars exist
+        cat_cols = df.select_dtypes(exclude=['number']).columns.tolist()
+        if not cat_cols:
+             # Fallback to text input or all cols if no strict cats found
+             pass
+             
         await update.message.reply_text(
             "1️⃣ **Select Grouping Variable** (Categorical):",
             reply_markup=get_column_keyboard(df, categorical_only=True)
@@ -124,6 +145,16 @@ async def guide_confirm_handler(update: Update, context: ContextTypes.DEFAULT_TY
         from src.bot.handlers import get_column_markup
         await update.message.reply_text(
             "Select **ROW** variable(s):",
+            reply_markup=get_column_markup(all_cols, extra_buttons=['✅ Done Selecting'])
+        )
+        return ACTION
+    elif test_key == 'frequencies':
+        context.user_data['awaiting_freq_vars'] = True
+        context.user_data['freq_vars'] = []
+        all_cols = context.user_data.get('columns', [])
+        from src.bot.handlers import get_column_markup
+        await update.message.reply_text(
+            "Select variable(s) for **Frequency Tabulation**:",
             reply_markup=get_column_markup(all_cols, extra_buttons=['✅ Done Selecting'])
         )
         return ACTION
