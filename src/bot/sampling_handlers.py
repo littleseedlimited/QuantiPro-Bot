@@ -1,4 +1,5 @@
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
+import math
 from telegram.ext import ContextTypes, ConversationHandler
 from src.core.sampler import Sampler
 
