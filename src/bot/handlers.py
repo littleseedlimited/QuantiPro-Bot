@@ -359,6 +359,13 @@ async def file_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ Error loading file: {str(e)}\nPlease try another file.")
         return UPLOAD
 
+async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Main handler for routing menu actions and text inputs.
+    """
+    if not update.message or not update.message.text:
+         return ACTION
+         
     choice = update.message.text
     file_path = context.user_data.get('file_path')
     df = context.user_data.get('df')
