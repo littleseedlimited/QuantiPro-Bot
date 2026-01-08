@@ -69,6 +69,65 @@ class AIInterpreter:
             return self._template_fallback(analysis_type, results)
 
 
+
+    async def chat(self, user_msg: str, file_path: str = None, analysis_history: list = None, visuals_history: list = None) -> str:
+        """
+        Context-aware chat about the user's data and analysis.
+        """
+        if not self.api_key:
+            return "⚠️ AI features are not enabled (API Key missing). I can only run statistical tests."
+
+        try:
+            from openai import AsyncOpenAI
+            client = AsyncOpenAI(api_key=self.api_key)
+            
+            # 1. Build Context String
+            context_text = ""
+            
+            # Recent Analysis (last 3)
+            if analysis_history:
+                context_text += "\n\nRECENT ANALYSIS RESULTS:\n"
+                for i, item in enumerate(analysis_history[-3:], 1):
+                    context_text += f"{i}. {item.get('test')} on {item.get('vars')}: {str(item.get('data'))[:500]}\n"
+            
+            # Recent Visuals (last 3)
+            if visuals_history:
+                context_text += "\n\nRECENT CHARTS GENERATED:\n"
+                for i, item in enumerate(visuals_history[-3:], 1):
+                    # item keys: path, title, type, data
+                    chart_info = f"{i}. {item.get('title')} ({item.get('type')})"
+                    if item.get('data'):
+                         # Include descriptive stats captured for the chart (especially Histograms)
+                         chart_info += f"\n   Underlying Data/Stats: {str(item.get('data'))[:600]}"
+                    context_text += chart_info + "\n"
+
+            system_prompt = (
+                "You are an expert statistical consultant assisting a researcher. "
+                "You have access to the context of their recent analysis below.\n"
+                "When asked to 'explain this' or interpret a result, refer specifically to the data provided in the context.\n"
+                "If the user asks about a histogram, look for the 'Underlying Data/Stats' to describe the distribution (mean, deviation, min/max).\n"
+                "Use professional but accessible language. "
+                "Do NOT use markdown bold/italic (**text**) in your final output, use plain text only."
+                f"{context_text}"
+            )
+
+            response = await client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_msg}
+                ],
+                max_tokens=400,
+                temperature=0.7
+            )
+            
+            return self._clean_formatting(response.choices[0].message.content)
+
+        except Exception as e:
+            logger.error(f"Chat error: {e}")
+            return "I encountered an error trying to process your request."
+
+
     def _template_fallback(self, analysis_type: str, results: Dict[str, Any]) -> str:
         """Simple templates for when no AI is available."""
         if analysis_type == "descriptive":

@@ -3554,8 +3554,14 @@ async def ai_chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     file_path = context.user_data.get('file_path')
     history = context.user_data.get('analysis_history', [])
+    visuals = context.user_data.get('visuals_history', [])
     
-    response = await interpreter.chat(user_input, file_path=file_path, analysis_history=history)
+    response = await interpreter.chat(
+        user_input, 
+        file_path=file_path, 
+        analysis_history=history,
+        visuals_history=visuals
+    )
     
     await update.message.reply_text(response, parse_mode='Markdown')
 
