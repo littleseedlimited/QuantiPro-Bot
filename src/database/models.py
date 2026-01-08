@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, Float, ForeignKey, DateTime, Text
+from sqlalchemy import Column, Integer, String, Boolean, Float, ForeignKey, DateTime, Text, BigInteger
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, backref
 from datetime import datetime
@@ -49,7 +49,7 @@ class Plan(Base):
 class User(Base):
     __tablename__ = 'users'
     
-    telegram_id = Column(Integer, primary_key=True)
+    telegram_id = Column(BigInteger, primary_key=True)
     full_name = Column(String)
     username = Column(String)
     email = Column(String)
@@ -65,7 +65,7 @@ class User(Base):
     
     # Institutional Onboarding
     invite_code = Column(String, unique=True, nullable=True)
-    institution_admin_id = Column(Integer, ForeignKey('users.telegram_id'), nullable=True)
+    institution_admin_id = Column(BigInteger, ForeignKey('users.telegram_id'), nullable=True)
     
     signup_date = Column(DateTime, default=datetime.utcnow)
     subscription_expiry = Column(DateTime, nullable=True)
@@ -84,7 +84,7 @@ class Task(Base):
     __tablename__ = 'tasks'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey('users.telegram_id'))
+    user_id = Column(BigInteger, ForeignKey('users.telegram_id'))
     
     title = Column(String, default="Untitled Analysis")
     status = Column(String, default="in_progress")  # in_progress, completed, saved

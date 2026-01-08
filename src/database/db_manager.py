@@ -65,6 +65,18 @@ class DatabaseManager:
                     print(f"DEBUG: Failed to add username: {e}")
                     session.rollback()
 
+            # Fix for Integer Overflow (BigInteger)
+            try:
+                # Postgres Only: SQLite uses dynamic typing so it might handle large ints automatically or need specific handling.
+                # Attempt to alter column type for Postgres
+                session.execute(text("ALTER TABLE users ALTER COLUMN telegram_id TYPE BIGINT"))
+                session.execute(text("ALTER TABLE tasks ALTER COLUMN user_id TYPE BIGINT"))
+                session.commit()
+            except Exception as e:
+                # This will fail on SQLite or if already BigInteger, so we catch and ignore
+                # print(f"DEBUG: BigInt Migration Warning: {e}")
+                session.rollback()
+
         except Exception as e:
             print(f"DEBUG: Schema update error: {e}")
         finally:
