@@ -310,15 +310,23 @@ class Visualizer:
         
         # Figure setup
         config = config or {}
-        Visualizer._setup_figure(f'{row} x {col}', xlabel=col, ylabel=row, config=config)
+        
+        # Determine labels
+        x_label = config.get('xlabel', col)
+        y_label = config.get('ylabel', row)
+        title = config.get('title', f'Crosstabulation: {row} vs {col}')
+        
+        Visualizer._setup_figure(title, xlabel=x_label, ylabel=y_label, config=config)
         
         # Heatmap
         palette = config.get('palette', 'YlGnBu')  # Heatmap friendly default
         sns.heatmap(ct, annot=True, fmt='d', cmap=palette, cbar=False, 
                    annot_kws={'size': 12, 'weight': 'bold'})
         
-        plt.title(f'Crosstabulation: {row} vs {col}', fontsize=14, pad=20)
-        plt.xticks(rotation=45)
+        plt.title(title, fontsize=14, pad=20)
+        plt.xlabel(x_label, fontsize=12)
+        plt.ylabel(y_label, fontsize=12)
+        plt.xticks(rotation=45, ha='right')
         plt.yticks(rotation=0)
         
         return Visualizer._save_plot(f'crosstab_{row}_{col}.png')

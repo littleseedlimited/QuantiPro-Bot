@@ -359,9 +359,14 @@ async def test_var_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if "error" in res:
         await update.message.reply_text(f"❌ Error: {res['error']}")
     else:
+        labels = context.user_data.get('variable_labels', {})
+        col_lbl = f"{col} ({labels.get(col, '')})" if labels.get(col) else col
+        grp_lbl = f"{group_col} ({labels.get(group_col, '')})" if labels.get(group_col) else group_col
+
         if test_type == 'ttest':
             msg = (f"✅ **Independent T-Test Results**\n\n"
-                   f"Difference between groups in **{col}**:\n"
+                   f"Difference between groups in **{col_lbl}**:\n"
+                   f"Grouping by: **{grp_lbl}**\n"
                    f"Groups: {res['groups']}\n\n"
                    f"**t-value**: {res['t_val']:.3f}\n"
                    f"**p-value**: {res['p_val']:.4f}\n"
@@ -369,7 +374,7 @@ async def test_var_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                    f"{'🌟 SIGNIFICANT difference!' if res['p_val'] < 0.05 else 'Outcome: No significant difference.'}")
         else:
              msg = (f"✅ **Mann-Whitney U Results**\n\n"
-                    f"Variable: **{col}** by **{group_col}**\n"
+                    f"Variable: **{col_lbl}** by **{grp_lbl}**\n"
                     f"**U-val**: {res['U-val']}\n"
                     f"**p-val**: {res['p-val']:.4f}\n"
                     f"{'🌟 SIGNIFICANT' if res['p-val'] < 0.05 else 'Not Significant'}")
@@ -438,8 +443,13 @@ async def anova_dv_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         # Format ANOVA table
         row = res_df.iloc[0]
+        labels = context.user_data.get('variable_labels', {})
+        dv_lbl = f"{col} ({labels.get(col, '')})" if labels.get(col) else col
+        fac_lbl = f"{factor} ({labels.get(factor, '')})" if labels.get(factor) else factor
+        
         msg = (f"✅ **ANOVA Results**\n\n"
-               f"Factor: **{factor}**\n"
+               f"Dependent Var: **{dv_lbl}**\n"
+               f"Factor: **{fac_lbl}**\n"
                f"**F-value**: {row['F']:.3f}\n"
                f"**p-value**: {row['p-unc']:.4f}\n"
                f"**np2** (Effect Size): {row['np2']:.3f}\n\n"
@@ -492,8 +502,14 @@ async def reliability_select_handler(update: Update, context: ContextTypes.DEFAU
         if "error" in res:
             await update.message.reply_text(f"❌ Error: {res['error']}")
         else:
+            labels = context.user_data.get('variable_labels', {})
+            # List truncated items with labels
+            item_list = [f"{i} ({labels.get(i)})" if labels.get(i) else i for i in selected[:5]]
+            if len(selected) > 5: item_list.append("...")
+            
             msg = (f"✅ **Reliability Analysis**\n\n"
                    f"Items: {len(selected)}\n"
+                   f"Vars: {', '.join(item_list)}\n"
                    f"**Cronbach's Alpha**: {res['alpha']:.3f}\n"
                    f"**95% CI**: {res['conf_interval']}\n"
                    f"**Rating**: {res['interpretation']}")

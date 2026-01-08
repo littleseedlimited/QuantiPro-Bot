@@ -447,6 +447,59 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await save_current_project(update, context)
     # -------------------------
 
+    # --- HANDLE EXPORT ---
+    if choice in ['📤 Export to Excel', '📤 Export to CSV']:
+        last = context.user_data.get('last_analysis')
+        if not last:
+            await update.message.reply_text("⚠️ No recent analysis results found to export.")
+            await show_action_menu(update)
+            return ACTION
+            
+        data = last.get('data')
+        title = last.get('title', 'Analysis_Result')
+        
+        try:
+            import pandas as pd
+            import io
+            
+            # Convert data to DataFrame if it isn't already
+            if isinstance(data, dict):
+                export_df = pd.DataFrame(data)
+            elif isinstance(data, list):
+                export_df = pd.DataFrame(data)
+            elif isinstance(data, pd.DataFrame):
+                export_df = data
+            else:
+                await update.message.reply_text("⚠️ Could not format data for export.")
+                return ACTION
+                
+            if 'Excel' in choice:
+                # Save to buffer
+                bio = io.BytesIO()
+                with pd.ExcelWriter(bio, engine='openpyxl') as writer:
+                    export_df.to_excel(writer, index=True, sheet_name='Result')
+                bio.seek(0)
+                await update.message.reply_document(
+                    document=bio,
+                    filename=f"{title}.xlsx",
+                    caption=f"📊 **{title}** (Excel)"
+                )
+            else:
+                # CSV
+                bio = io.BytesIO()
+                export_df.to_csv(bio, index=True)
+                bio.seek(0)
+                await update.message.reply_document(
+                    document=bio,
+                    filename=f"{title}.csv",
+                    caption=f"📊 **{title}** (CSV)"
+                )
+                
+        except Exception as e:
+            await update.message.reply_text(f"⚠️ Export failed: {str(e)}")
+            
+        return ACTION
+
     # --- HANDLE AI CHAT MODE FIRST (before other resets) ---
     if context.user_data.get('ai_chat_mode'):
         if choice == 'Exit Chat' or choice.lower() == 'exit':
@@ -1367,7 +1420,9 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                       # Send table image
                       try:
                           from src.core.visualizer import Visualizer
-                          img_path = Visualizer.create_stats_table_image(res_df, title=f"Frequency: {var}")
+                          labels = context.user_data.get('variable_labels', {})
+                          var_label = labels.get(var, var)
+                          img_path = Visualizer.create_stats_table_image(res_df, title=f"Frequency: {var_label}")
                           if img_path:
                                await update.message.reply_photo(photo=open(img_path, 'rb'))
                           else:
@@ -1585,7 +1640,17 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 all_outputs = []
                 for row_var in row_vars:
                     # 1. Visual: Create Heatmap
-                    heatmap_path = Visualizer.create_crosstab_heatmap(df, row_var, col_var)
+                    labels = context.user_data.get('variable_labels', {})
+                    row_lbl = labels.get(row_var, row_var)
+                    col_lbl = labels.get(col_var, col_var)
+                    
+                    config = {
+                        'title': f'{row_lbl} by {col_lbl}',
+                        'ylabel': row_lbl,
+                        'xlabel': col_lbl
+                    }
+                    
+                    heatmap_path = Visualizer.create_crosstab_heatmap(df, row_var, col_var, config=config)
                     
                     if heatmap_path:
                         await update.message.reply_photo(
@@ -1823,7 +1888,9 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ACTION
 
     # Fallback: show menu again
-    await show_action_menu(update, "Please select an option from the menu:")
+    # Fallback: Treat as AI Chat Query if not a menu command
+    # This ensures "seamless AI" integration as requested
+    await ai_chat_handler(update, context)
     return ACTION
 
 
