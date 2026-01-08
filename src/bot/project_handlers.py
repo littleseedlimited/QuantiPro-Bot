@@ -28,18 +28,26 @@ async def show_projects_menu(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     # Build inline keyboard for project selection
     buttons = []
-    for task in tasks:
-        status_icon = "🟢" if task['status'] == 'saved' else "✅" if task['status'] == 'completed' else "🔄"
-        label = f"{status_icon} {task['title'][:30]} ({task['created']})"
-        buttons.append([InlineKeyboardButton(label, callback_data=f"project_load_{task['id']}")])
     
-    # Add delete option
-    buttons.append([InlineKeyboardButton("🗑️ Delete a Project", callback_data="project_delete_menu")])
+    # Header row
+    buttons.append([InlineKeyboardButton("🔄 Refresh List", callback_data="project_refresh")])
+    
+    for task in tasks:
+        # Format: "Study Title | Date"
+        status_icon = "🟢" if task['status'] == 'saved' else "✅"
+        # Use research title if available, else fallback title
+        display_title = task['title']
+        created_date = task['created'] # YYYY-MM-DD HH:MM
+        
+        label = f"{status_icon} {display_title} ({created_date})"
+        # Action: Click to open options menu for this project
+        buttons.append([InlineKeyboardButton(label, callback_data=f"project_options_{task['id']}")])
+    
     buttons.append([InlineKeyboardButton("◀️ Back to Menu", callback_data="project_back")])
     
     await update.message.reply_text(
         "📁 **My Projects**\n\n"
-        "Select a project to continue working on it:",
+        "Select a project to manage (Open, Rename, Delete):",
         parse_mode='Markdown',
         reply_markup=InlineKeyboardMarkup(buttons)
     )
@@ -98,40 +106,77 @@ async def project_callback_handler(update: Update, context: ContextTypes.DEFAULT
     db = DatabaseManager()
     data = query.data
     
-    if data == "project_back":
-        from src.bot.handlers import show_action_menu
+    if data == "project_back" or data == "project_refresh":
+        # Return to main project list
         await query.message.delete()
-        await show_action_menu(update, context=context)
+        await show_projects_menu(update, context)
         return ACTION
     
-    elif data == "project_delete_menu":
-        # Show delete menu
-        tasks = db.get_user_tasks(user_id, limit=10)
-        if not tasks:
-            await query.message.edit_text("No projects to delete.")
-            return ACTION
+    elif data.startswith("project_options_"):
+        # Show CRUD Sub-menu for a specific project
+        task_id = int(data.replace("project_options_", ""))
+        task = db.get_task(task_id)
         
-        buttons = []
-        for task in tasks:
-            label = f"🗑️ {task['title'][:30]}"
-            buttons.append([InlineKeyboardButton(label, callback_data=f"project_confirm_delete_{task['id']}")])
-        buttons.append([InlineKeyboardButton("◀️ Cancel", callback_data="project_back")])
+        if not task:
+            await query.answer("Project not found.", show_alert=True)
+            await show_projects_menu(update, context)
+            return ACTION
+            
+        buttons = [
+            [InlineKeyboardButton("📂 Open / Load", callback_data=f"project_load_{task_id}")],
+            [InlineKeyboardButton("✏️ Rename", callback_data=f"project_rename_{task_id}")],
+            [InlineKeyboardButton("🗑️ Delete", callback_data=f"project_verify_{task_id}")],
+            [InlineKeyboardButton("◀️ Back to List", callback_data="project_refresh")]
+        ]
         
         await query.message.edit_text(
-            "🗑️ **Delete Project**\n\nSelect a project to delete:",
+            f"📁 **Manage Project**\n\n"
+            f"**Title**: {task['title']}\n"
+            f"**Created**: {task.get('created', 'N/A')}\n"
+            f"**Status**: {task['status']}\n\n"
+            "Select an action:",
             parse_mode='Markdown',
             reply_markup=InlineKeyboardMarkup(buttons)
         )
         return ACTION
-    
-    elif data.startswith("project_confirm_delete_"):
-        task_id = int(data.replace("project_confirm_delete_", ""))
+
+    elif data.startswith("project_verify_"):
+        # Ask for confirmation before delete
+        task_id = int(data.replace("project_verify_", ""))
+        buttons = [
+            [InlineKeyboardButton("❌ Yes, Delete Forever", callback_data=f"project_delete_{task_id}")],
+            [InlineKeyboardButton("🔙 No, Cancel", callback_data=f"project_options_{task_id}")]
+        ]
+        await query.message.edit_text(
+            "⚠️ **Confirm Deletion**\n\n"
+            "Are you sure you want to delete this project? This action cannot be undone.",
+            parse_mode='Markdown',
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
+        return ACTION
+
+    elif data.startswith("project_rename_"):
+        # Initiate rename flow (ask for text input)
+        task_id = int(data.replace("project_rename_", ""))
+        context.user_data['awaiting_rename'] = task_id
+        
+        await query.message.edit_text(
+            "✏️ **Rename Project**\n\n"
+            "Please type the new name for this project:",
+            parse_mode='Markdown'
+        )
+        return ACTION
+
+    elif data.startswith("project_delete_"):
+        # Actual Delete
+        task_id = int(data.replace("project_delete_", ""))
         success = db.delete_task(task_id, user_id)
         
         if success:
-            await query.message.edit_text("✅ Project deleted successfully!")
+            await query.answer("Project deleted successfully!", show_alert=True)
+            await show_projects_menu(update, context)
         else:
-            await query.message.edit_text("❌ Could not delete project.")
+            await query.answer("Could not delete project.", show_alert=True)
         return ACTION
     
     elif data.startswith("project_load_"):

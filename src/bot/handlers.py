@@ -370,6 +370,25 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     file_path = context.user_data.get('file_path')
     df = context.user_data.get('df')
 
+    # --- HANDLE PROJECT RENAME ---
+    if context.user_data.get('awaiting_rename'):
+        task_id = context.user_data['awaiting_rename']
+        new_title = choice
+        
+        # Verify ownership and update
+        db = DatabaseManager()
+        success = db.update_task(task_id, update.effective_user.id, title=new_title)
+        
+        if success:
+             await update.message.reply_text(f"✅ Project renamed to: **{new_title}**", parse_mode='Markdown')
+        else:
+             await update.message.reply_text("❌ Error renaming project.")
+             
+        context.user_data['awaiting_rename'] = None
+        # Return to project menu
+        from src.bot.project_handlers import show_projects_menu
+        return await show_projects_menu(update, context)
+        
     # --- HANDLE UPLOAD DECISION ---
     if context.user_data.get('awaiting_map_decision'):
         context.user_data['awaiting_map_decision'] = False
