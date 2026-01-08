@@ -51,6 +51,7 @@ class User(Base):
     
     telegram_id = Column(Integer, primary_key=True)
     full_name = Column(String)
+    username = Column(String)
     email = Column(String)
     phone = Column(String)
     country = Column(String)

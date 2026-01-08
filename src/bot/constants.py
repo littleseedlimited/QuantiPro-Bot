@@ -30,6 +30,7 @@ S_NAME = 50
 S_EMAIL = 51
 S_PHONE = 52
 S_COUNTRY = 53
+S_USERNAME = 54
 
 # Analysis states
 TEST_SELECT = 70

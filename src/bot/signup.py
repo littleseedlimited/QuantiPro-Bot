@@ -4,7 +4,7 @@ from src.database.db_manager import DatabaseManager
 from src.utils.logger import logger
 
 from src.bot.constants import (
-    S_ID, S_NAME, S_EMAIL, S_PHONE, S_COUNTRY
+    S_ID, S_NAME, S_EMAIL, S_PHONE, S_COUNTRY, S_USERNAME
 )
 
 class SignupManager:
@@ -46,8 +46,24 @@ class SignupManager:
             )
             return S_ID
 
+
         context.user_data['reg_id'] = user_input
-        await update.message.reply_text("✅ ID Verified! Now, what is your **Full Name**?")
+        await update.message.reply_text(
+            "✅ ID Verified!\n\n"
+            "Now, please enter your **Telegram Username** (including the @ symbol):\n"
+            "_(e.g., @john_doe)_"
+        )
+        return S_USERNAME
+        
+    @staticmethod
+    async def handle_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        username = update.message.text.strip()
+        if not username.startswith('@'):
+            await update.message.reply_text("⚠️ Username must start with '@'. Please try again:")
+            return S_USERNAME
+            
+        context.user_data['reg_username'] = username
+        await update.message.reply_text("Got it. Now, what is your **Full Name**?")
         return S_NAME
 
     @staticmethod
@@ -109,6 +125,7 @@ class SignupManager:
             db.create_user(
                 telegram_id=user_id,
                 full_name=context.user_data['reg_name'],
+                username=context.user_data['reg_username'],
                 email=context.user_data['reg_email'],
                 phone=context.user_data['reg_phone'],
                 country=country,

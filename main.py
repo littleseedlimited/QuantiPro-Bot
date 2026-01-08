@@ -23,7 +23,7 @@ from src.bot.constants import (
     MODE_SELECT, METHOD_SELECT, CI_SELECT, PARAM_INPUT, STUDY_TYPE_SELECT, POPULATION_CHECK,
     S_NAME, S_EMAIL, S_PHONE, S_COUNTRY,
     TEST_SELECT, VAR_SELECT_GROUP, VAR_SELECT_TEST, ANOVA_SELECT_FACTOR, ANOVA_SELECT_DV, RELIABILITY_SELECT,
-    GUIDE_CONFIRM, S_ID, CHART_CONFIG
+    GUIDE_CONFIRM, S_ID, S_USERNAME, CHART_CONFIG
 )
 from src.bot.handlers import (
     start_handler, file_handler, action_handler, plans_handler, force_admin_init,
@@ -161,6 +161,7 @@ def main():
             ACTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, action_handler)],
             # Signup States
             S_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, SignupManager.handle_id)],
+            S_USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, SignupManager.handle_username)],
             S_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, SignupManager.handle_name)],
             S_EMAIL: [MessageHandler(filters.TEXT & ~filters.COMMAND, SignupManager.handle_email)],
             S_PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, SignupManager.handle_phone)],
