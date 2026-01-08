@@ -124,7 +124,7 @@ async def project_callback_handler(update: Update, context: ContextTypes.DEFAULT
     
     if data == "project_back" or data == "project_refresh":
         # Return to main project list
-        await query.message.delete()
+        # Don't delete, just passing control to show_projects_menu which handles edit/reply
         await show_projects_menu(update, context)
         return ACTION
     
@@ -145,9 +145,12 @@ async def project_callback_handler(update: Update, context: ContextTypes.DEFAULT
             [InlineKeyboardButton("◀️ Back to List", callback_data="project_refresh")]
         ]
         
+        # Escape title for markdown
+        safe_title = task['title'].replace("_", "\\_").replace("*", "\\*").replace("`", "\\`")
+
         await query.message.edit_text(
             f"📁 **Manage Project**\n\n"
-            f"**Title**: {task['title']}\n"
+            f"**Title**: {safe_title}\n"
             f"**Created**: {task.get('created', 'N/A')}\n"
             f"**Status**: {task['status']}\n\n"
             "Select an action:",
@@ -211,9 +214,12 @@ async def project_callback_handler(update: Update, context: ContextTypes.DEFAULT
         # Mark as in_progress
         db.update_task_status(task_id, 'in_progress')
         
+        # Escape title for markdown
+        safe_title = task['title'].replace("_", "\\_").replace("*", "\\*").replace("`", "\\`")
+        
         await query.message.edit_text(
             f"📂 **Project Loaded!**\n\n"
-            f"📄 _{task['title']}_\n\n"
+            f"📄 _{safe_title}_\n\n"
             "Your previous session has been restored. Continue your analysis!",
             parse_mode='Markdown'
         )
