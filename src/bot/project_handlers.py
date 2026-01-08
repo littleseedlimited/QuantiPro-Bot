@@ -29,7 +29,6 @@ async def show_projects_menu(update: Update, context: ContextTypes.DEFAULT_TYPE)
         pass
 
     if not tasks:
-    if not tasks:
         text = (
             "📁 <b>My Projects</b>\n\n"
             "You have no saved projects yet.\n\n"
