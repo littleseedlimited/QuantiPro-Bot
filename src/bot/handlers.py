@@ -3077,8 +3077,10 @@ async def admin_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Check for Web App URL
     webapp_url = os.getenv("MINIAPP_URL")
     if webapp_url:
-        # Add Dashboard at the top
-        keyboard.insert(0, [InlineKeyboardButton("🖥️ Open Admin Dashboard", web_app=WebAppInfo(url=webapp_url))])
+        # Construct specific Admin URL
+        # Ensure we point to admin.html inside the app directory
+        admin_url = webapp_url.rstrip('/') + '/admin.html'
+        keyboard.insert(0, [InlineKeyboardButton("🖥️ Open Admin Dashboard", web_app=WebAppInfo(url=admin_url))])
     
     await update.message.reply_text(
         "🛡️ **SUPER ADMIN CONSOLE**\n\n"

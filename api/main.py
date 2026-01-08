@@ -601,6 +601,43 @@ async def delete_project(
     return {"message": "Project deleted"}
 
 
+# ==================== ADMIN ROUTES ====================
+
+@app.get("/api/admin/users")
+async def admin_list_users(user: TelegramUser = Depends(get_current_user)):
+    """List all users (Admin only)."""
+    db = DatabaseManager()
+    
+    # Check admin status
+    admin_user = db.get_user(user.id)
+    if not admin_user or not admin_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+        
+    users = db.get_all_users()
+    return {"users": users}
+
+@app.get("/api/admin/stats")
+async def admin_stats(user: TelegramUser = Depends(get_current_user)):
+    """Get system stats (Admin only)."""
+    db = DatabaseManager()
+    
+    # Check admin status
+    admin_user = db.get_user(user.id)
+    if not admin_user or not admin_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+        
+    # Basic stats
+    users = db.get_all_users()
+    total_users = len(users)
+    verified_users = sum(1 for u in users if u.get('verified'))
+    
+    return {
+        "total_users": total_users,
+        "verified_users": verified_users,
+        "active_today": 0 # Placeholder
+    }
+
+
 # ==================== HOSTING OPTIONS ====================
 """
 HOSTING RECOMMENDATIONS:

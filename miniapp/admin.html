@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>QuantiProBot Admin</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/app/styles.css">
+    <style>
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            margin-top: 1rem;
+        }
+
+        .admin-table th,
+        .admin-table td {
+            text-align: left;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .admin-table th {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .status-badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-verified {
+            background: rgba(34, 197, 94, 0.1);
+            color: rgb(34, 197, 94);
+        }
+
+        .status-unverified {
+            background: rgba(239, 68, 68, 0.1);
+            color: rgb(239, 68, 68);
+        }
+
+        .action-btn-sm {
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin-right: 4px;
+        }
+
+        .btn-verify {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-card {
+            background: var(--bg-secondary);
+            padding: 1rem;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <span class="logo-icon">🛡️</span>
+                    <span class="logo-text">Admin Console</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <!-- Stats -->
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalUsers">-</div>
+                    <div class="stat-label">Total Users</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="activeUsers">-</div>
+                    <div class="stat-label">Verified Users</div>
+                </div>
+            </div>
+
+            <!-- User List -->
+            <section class="screen active">
+                <div class="screen-header">
+                    <h2>User Management</h2>
+                    <button class="secondary-btn" onclick="loadUsers()" style="padding: 4px 8px;">🔄 Refresh</button>
+                </div>
+
+                <div class="search-box" style="margin-bottom: 1rem;">
+                    <input type="text" id="userSearch" class="form-input" placeholder="Search users by name or ID..."
+                        onkeyup="filterUsers()">
+                </div>
+
+                <div style="overflow-x: auto;">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Plan</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userTableBody">
+                            <tr>
+                                <td colspan="4" style="text-align: center;">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/app/admin.js"></script>
+</body>
+
+</html>
