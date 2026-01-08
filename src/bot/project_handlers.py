@@ -6,7 +6,9 @@ from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKe
 from telegram.ext import ContextTypes
 from src.database.db_manager import DatabaseManager
 from src.bot.constants import ACTION
+from telegram.error import BadRequest
 import os
+import html
 
 
 async def show_projects_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -27,15 +29,19 @@ async def show_projects_menu(update: Update, context: ContextTypes.DEFAULT_TYPE)
         pass
 
     if not tasks:
+    if not tasks:
         text = (
-            "📁 **My Projects**\n\n"
+            "📁 <b>My Projects</b>\n\n"
             "You have no saved projects yet.\n\n"
             "To save a project, start an analysis and use '💾 Save & Exit'."
         )
-        if update.callback_query:
-            await msg.edit_text(text, parse_mode='Markdown', reply_markup=ReplyKeyboardMarkup([['◀️ Back to Menu']], resize_keyboard=True))
-        else:
-             await msg.reply_text(text, parse_mode='Markdown', reply_markup=ReplyKeyboardMarkup([['◀️ Back to Menu']], resize_keyboard=True))
+        try:
+            if update.callback_query:
+                await msg.edit_text(text, parse_mode='HTML', reply_markup=ReplyKeyboardMarkup([['◀️ Back to Menu']], resize_keyboard=True))
+            else:
+                 await msg.reply_text(text, parse_mode='HTML', reply_markup=ReplyKeyboardMarkup([['◀️ Back to Menu']], resize_keyboard=True))
+        except BadRequest:
+            pass
         return ACTION
     
     # Build inline keyboard for project selection
@@ -47,8 +53,12 @@ async def show_projects_menu(update: Update, context: ContextTypes.DEFAULT_TYPE)
     for task in tasks:
         # Format: "Study Title | Date"
         status_icon = "🟢" if task['status'] == 'saved' else "✅"
-        # Use research title if available, else fallback title. Escape Markdown.
-        display_title = task['title'].replace("_", "\\_").replace("*", "\\*").replace("`", "\\`")
+    for task in tasks:
+        # Format: "Study Title | Date"
+        status_icon = "🟢" if task['status'] == 'saved' else "✅"
+        # Use research title if available, else fallback title.
+        # Button labels are PLAIN TEXT - NO ESCAPING NEEDED for Markdown/HTML
+        display_title = task['title']
         created_date = task['created'] # YYYY-MM-DD HH:MM
         
         label = f"{status_icon} {display_title} ({created_date})"
@@ -58,14 +68,17 @@ async def show_projects_menu(update: Update, context: ContextTypes.DEFAULT_TYPE)
     buttons.append([InlineKeyboardButton("◀️ Back to Menu", callback_data="project_back")])
     
     text = (
-        "📁 **My Projects**\n\n"
+        "📁 <b>My Projects</b>\n\n"
         "Select a project to manage (Open, Rename, Delete):"
     )
     
-    if update.callback_query:
-        await msg.edit_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(buttons))
-    else:
-        await msg.reply_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(buttons))
+    try:
+        if update.callback_query:
+            await msg.edit_text(text, parse_mode='HTML', reply_markup=InlineKeyboardMarkup(buttons))
+        else:
+            await msg.reply_text(text, parse_mode='HTML', reply_markup=InlineKeyboardMarkup(buttons))
+    except BadRequest:
+        pass
         
     return ACTION
 
@@ -145,18 +158,21 @@ async def project_callback_handler(update: Update, context: ContextTypes.DEFAULT
             [InlineKeyboardButton("◀️ Back to List", callback_data="project_refresh")]
         ]
         
-        # Escape title for markdown
-        safe_title = task['title'].replace("_", "\\_").replace("*", "\\*").replace("`", "\\`")
+        # Escape title for HTML
+        safe_title = html.escape(task['title'])
 
-        await query.message.edit_text(
-            f"📁 **Manage Project**\n\n"
-            f"**Title**: {safe_title}\n"
-            f"**Created**: {task.get('created', 'N/A')}\n"
-            f"**Status**: {task['status']}\n\n"
-            "Select an action:",
-            parse_mode='Markdown',
-            reply_markup=InlineKeyboardMarkup(buttons)
-        )
+        try:
+            await query.message.edit_text(
+                f"📁 <b>Manage Project</b>\n\n"
+                f"<b>Title</b>: {safe_title}\n"
+                f"<b>Created</b>: {task.get('created', 'N/A')}\n"
+                f"<b>Status</b>: {task['status']}\n\n"
+                "Select an action:",
+                parse_mode='HTML',
+                reply_markup=InlineKeyboardMarkup(buttons)
+            )
+        except BadRequest:
+            pass
         return ACTION
 
     elif data.startswith("project_verify_"):
@@ -166,12 +182,15 @@ async def project_callback_handler(update: Update, context: ContextTypes.DEFAULT
             [InlineKeyboardButton("❌ Yes, Delete Forever", callback_data=f"project_delete_{task_id}")],
             [InlineKeyboardButton("🔙 No, Cancel", callback_data=f"project_options_{task_id}")]
         ]
-        await query.message.edit_text(
-            "⚠️ **Confirm Deletion**\n\n"
-            "Are you sure you want to delete this project? This action cannot be undone.",
-            parse_mode='Markdown',
-            reply_markup=InlineKeyboardMarkup(buttons)
-        )
+        try:
+            await query.message.edit_text(
+                "⚠️ <b>Confirm Deletion</b>\n\n"
+                "Are you sure you want to delete this project? This action cannot be undone.",
+                parse_mode='HTML',
+                reply_markup=InlineKeyboardMarkup(buttons)
+            )
+        except BadRequest:
+            pass
         return ACTION
 
     elif data.startswith("project_rename_"):
@@ -179,11 +198,15 @@ async def project_callback_handler(update: Update, context: ContextTypes.DEFAULT
         task_id = int(data.replace("project_rename_", ""))
         context.user_data['awaiting_rename'] = task_id
         
-        await query.message.edit_text(
-            "✏️ **Rename Project**\n\n"
-            "Please type the new name for this project:",
-            parse_mode='Markdown'
-        )
+        try:
+            await query.message.edit_text(
+                "✏️ <b>Rename Project</b>\n\n"
+                "Please type the new name for this project:",
+                parse_mode='HTML'
+            )
+        except BadRequest:
+             pass
+        return ACTION
         return ACTION
 
     elif data.startswith("project_delete_"):
@@ -214,15 +237,18 @@ async def project_callback_handler(update: Update, context: ContextTypes.DEFAULT
         # Mark as in_progress
         db.update_task_status(task_id, 'in_progress')
         
-        # Escape title for markdown
-        safe_title = task['title'].replace("_", "\\_").replace("*", "\\*").replace("`", "\\`")
+        # Escape title for HTML
+        safe_title = html.escape(task['title'])
         
-        await query.message.edit_text(
-            f"📂 **Project Loaded!**\n\n"
-            f"📄 _{safe_title}_\n\n"
-            "Your previous session has been restored. Continue your analysis!",
-            parse_mode='Markdown'
-        )
+        try:
+            await query.message.edit_text(
+                f"📂 <b>Project Loaded!</b>\n\n"
+                f"📄 <i>{safe_title}</i>\n\n"
+                "Your previous session has been restored. Continue your analysis!",
+                parse_mode='HTML'
+            )
+        except BadRequest:
+            pass
         
         # Show action menu
         from src.bot.handlers import show_action_menu
