@@ -46,10 +46,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve Mini App static files
+# Serve Mini App static files - MOVED TO END
 MINIAPP_DIR = os.path.join(os.path.dirname(__file__), "..", "miniapp")
-if os.path.exists(MINIAPP_DIR):
-    app.mount("/app", StaticFiles(directory=MINIAPP_DIR, html=True), name="miniapp")
+# if os.path.exists(MINIAPP_DIR):
+#    app.mount("/app", StaticFiles(directory=MINIAPP_DIR, html=True), name="miniapp")
 
 DATA_DIR = os.getenv("DATA_DIR", "data")
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -667,6 +667,21 @@ HOSTING RECOMMENDATIONS:
 """
 
 
+# ==================== STATIC SERVING ====================
+
+# Mount /app for specific access
+if os.path.exists(MINIAPP_DIR):
+    app.mount("/app", StaticFiles(directory=MINIAPP_DIR, html=True), name="miniapp_app")
+
+# Mount root "/" as catch-all for static files (MUST BE LAST)
+# This allows serving /admin.html, /styles.css directly
+if os.path.exists(MINIAPP_DIR):
+    app.mount("/", StaticFiles(directory=MINIAPP_DIR, html=True), name="miniapp_root")
+
 if __name__ == "__main__":
     import uvicorn
+    # Debug paths
+    print(f"DEBUG: MINIAPP_DIR = {os.path.abspath(MINIAPP_DIR)}")
+    print(f"DEBUG: Files in MINIAPP_DIR: {os.listdir(MINIAPP_DIR) if os.path.exists(MINIAPP_DIR) else 'Not Found'}")
+    
     uvicorn.run(app, host="0.0.0.0", port=8000)
