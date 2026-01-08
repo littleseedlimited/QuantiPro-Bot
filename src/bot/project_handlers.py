@@ -16,14 +16,26 @@ async def show_projects_menu(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     tasks = db.get_user_tasks(user_id, limit=10)
     
+    msg = update.effective_message
+    
+    # helper for cleanup
+    if update.callback_query:
+        # If triggered by callback, we might want to edit or delete/reply
+        # Usually delete old menu and send new, or edit. 
+        # But 'reply_text' works on effective_message too.
+        # Let's clean up previous message to avoid clutter if desired, or just edit.
+        pass
+
     if not tasks:
-        await update.message.reply_text(
+        text = (
             "📁 **My Projects**\n\n"
             "You have no saved projects yet.\n\n"
-            "To save a project, start an analysis and use '💾 Save & Exit'.",
-            parse_mode='Markdown',
-            reply_markup=ReplyKeyboardMarkup([['◀️ Back to Menu']], resize_keyboard=True)
+            "To save a project, start an analysis and use '💾 Save & Exit'."
         )
+        if update.callback_query:
+            await msg.edit_text(text, parse_mode='Markdown', reply_markup=ReplyKeyboardMarkup([['◀️ Back to Menu']], resize_keyboard=True))
+        else:
+             await msg.reply_text(text, parse_mode='Markdown', reply_markup=ReplyKeyboardMarkup([['◀️ Back to Menu']], resize_keyboard=True))
         return ACTION
     
     # Build inline keyboard for project selection
@@ -35,8 +47,8 @@ async def show_projects_menu(update: Update, context: ContextTypes.DEFAULT_TYPE)
     for task in tasks:
         # Format: "Study Title | Date"
         status_icon = "🟢" if task['status'] == 'saved' else "✅"
-        # Use research title if available, else fallback title
-        display_title = task['title']
+        # Use research title if available, else fallback title. Escape Markdown.
+        display_title = task['title'].replace("_", "\\_").replace("*", "\\*").replace("`", "\\`")
         created_date = task['created'] # YYYY-MM-DD HH:MM
         
         label = f"{status_icon} {display_title} ({created_date})"
@@ -45,12 +57,16 @@ async def show_projects_menu(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     buttons.append([InlineKeyboardButton("◀️ Back to Menu", callback_data="project_back")])
     
-    await update.message.reply_text(
+    text = (
         "📁 **My Projects**\n\n"
-        "Select a project to manage (Open, Rename, Delete):",
-        parse_mode='Markdown',
-        reply_markup=InlineKeyboardMarkup(buttons)
+        "Select a project to manage (Open, Rename, Delete):"
     )
+    
+    if update.callback_query:
+        await msg.edit_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(buttons))
+    else:
+        await msg.reply_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(buttons))
+        
     return ACTION
 
 
