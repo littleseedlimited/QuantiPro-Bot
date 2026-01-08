@@ -478,7 +478,7 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         title = last.get('title', 'Analysis_Result')
         
         try:
-            import pandas as pd
+            # import pandas as pd # Removed redundant import
             import io
             
             # Convert data to DataFrame if it isn't already
@@ -3065,17 +3065,26 @@ async def admin_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     # Show admin menu
+    # Show admin menu
+    keyboard = [
+        [InlineKeyboardButton("👥 View All Users", callback_data="admin_users")],
+        [InlineKeyboardButton("📊 System Stats", callback_data="admin_stats")],
+        [InlineKeyboardButton("✅ Verify User", callback_data="admin_verify")],
+        [InlineKeyboardButton("⬆️ Upgrade User Plan", callback_data="admin_upgrade")],
+        [InlineKeyboardButton("🔙 Close", callback_data="admin_close")]
+    ]
+    
+    # Check for Web App URL
+    webapp_url = os.getenv("MINIAPP_URL")
+    if webapp_url:
+        # Add Dashboard at the top
+        keyboard.insert(0, [InlineKeyboardButton("🖥️ Open Admin Dashboard", web_app=WebAppInfo(url=webapp_url))])
+    
     await update.message.reply_text(
         "🛡️ **SUPER ADMIN CONSOLE**\n\n"
         "Choose an action:",
         parse_mode='Markdown',
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("👥 View All Users", callback_data="admin_users")],
-            [InlineKeyboardButton("📊 System Stats", callback_data="admin_stats")],
-            [InlineKeyboardButton("✅ Verify User", callback_data="admin_verify")],
-            [InlineKeyboardButton("⬆️ Upgrade User Plan", callback_data="admin_upgrade")],
-            [InlineKeyboardButton("🔙 Close", callback_data="admin_close")]
-        ])
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
 
