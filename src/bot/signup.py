@@ -6,6 +6,7 @@ from src.utils.logger import logger
 from src.bot.constants import (
     S_ID, S_NAME, S_EMAIL, S_PHONE, S_COUNTRY, S_USERNAME
 )
+import re
 
 class SignupManager:
     """
@@ -74,8 +75,14 @@ class SignupManager:
 
     @staticmethod
     async def handle_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        context.user_data['reg_email'] = update.message.text
-        # Optional: Basic email validation logic here
+        email = update.message.text.strip()
+        EMAIL_REGEX = r'^[\w\.-]+@[\w\.-]+\.\w+$'
+        
+        if not re.match(EMAIL_REGEX, email):
+            await update.message.reply_text("⚠️ Invalid email format. Please enter a valid email address (e.g., name@example.com):")
+            return S_EMAIL
+
+        context.user_data['reg_email'] = email
         await update.message.reply_text("Thank you. What is your **Phone Number**?")
         return S_PHONE
 
@@ -143,5 +150,5 @@ class SignupManager:
             
         except Exception as e:
             logger.error(f"Signup failed for {user_id}: {e}")
-            await update.message.reply_text("❌ There was an error during registration. Please try again with /start.")
+            await update.message.reply_text(f"❌ Registration Error: {str(e)}\n\nPlease try again with /start or contact support.")
             return ConversationHandler.END
