@@ -52,6 +52,19 @@ class DatabaseManager:
                     print(f"DEBUG: Failed to add is_verified: {e}")
                     session.rollback()
 
+            # Check for username (added for v2)
+            try:
+                session.execute(text("SELECT username FROM users LIMIT 1"))
+            except Exception:
+                print("DEBUG: Adding missing column 'username' to users table")
+                session.rollback()
+                try:
+                    session.execute(text("ALTER TABLE users ADD COLUMN username VARCHAR"))
+                    session.commit()
+                except Exception as e:
+                    print(f"DEBUG: Failed to add username: {e}")
+                    session.rollback()
+
         except Exception as e:
             print(f"DEBUG: Schema update error: {e}")
         finally:
