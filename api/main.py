@@ -54,7 +54,10 @@ MINIAPP_DIR = os.path.join(os.path.dirname(__file__), "..", "miniapp")
 DATA_DIR = os.getenv("DATA_DIR", "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "")
+from dotenv import load_dotenv
+load_dotenv()
+
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 
 
 # ==================== MODELS ====================
