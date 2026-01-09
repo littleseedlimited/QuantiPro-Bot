@@ -3554,6 +3554,30 @@ async def ai_chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle free-form text with AI context awareness."""
     user_input = update.message.text
     
+    # --- GUARD: CATCH STRAY BUTTON CLICKS (LOST CONTEXT) ---
+    stray_buttons = [
+        "✅ Proceed", "❌ Cancel Analysis", "✅ Generate Chart", 
+        "📝 Edit Title", "🏷️ X Label", "🏷️ Y Label",
+        "📊 Bar Chart", "📈 Line Chart", "📉 Histogram", "🥧 Pie Chart",
+        "🔵 Scatter Plot", "📦 Box Plot", "🕸️ Radar/Web Plot", "🔥 Heatmap",
+        "Violin Plot", "Pair Plot", "🎨 Chart Settings",
+        "Times New Roman", "Arial", "Calibri", "Georgia",
+        "Single (1.0)", "1.5 Spacing", "Double (2.0)",
+        "APA 7th", "MLA 9th", "Harvard", "Vancouver",
+        "📝 Short (1500-2500)", "📄 Medium (3000-5000)"
+    ]
+    
+    # Check exact match or if it starts with a known button icon pattern
+    if user_input in stray_buttons or user_input.startswith("◀️") or user_input.startswith("✅"):
+        await update.message.reply_text(
+            "⚠️ **Session Context Expired**\n\n"
+            "It seems you clicked a button from an old or expired session.\n"
+            "Please select an action from the menu below:",
+            parse_mode='Markdown'
+        )
+        await show_action_menu(update)
+        return
+
     # Ignore short or irrelevant messages if needed, but for now respond to all
     if len(user_input) < 2: return
     
