@@ -608,10 +608,26 @@ async def admin_list_users(user: TelegramUser = Depends(get_current_user)):
     """List all users (Admin only)."""
     db = DatabaseManager()
     
-    # Check admin status
+    # Check admin status (DB flag OR Super Admin whitelist)
+    is_super = False
+    
+    # Check Username
+    if user.username and user.username.lower() == "origichidiah":
+        is_super = True
+    
+    # Check Env Var
+    super_id = os.getenv("SUPER_ADMIN_ID")
+    if super_id and str(user.id) == str(super_id):
+        is_super = True
+        
+    # Check Hardcoded ID (The user's specific ID)
+    if str(user.id) == "1241907317":
+        is_super = True
+        
     admin_user = db.get_user(user.id)
-    if not admin_user or not admin_user.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    if not is_super and (not admin_user or not admin_user.is_admin):
+        # Return detail to help debug
+        raise HTTPException(status_code=403, detail=f"Access Denied for user: {user.username} ({user.id}). Bot Token configured? {bool(BOT_TOKEN)}")
         
     users = db.get_all_users()
     return {"users": users}
@@ -622,9 +638,20 @@ async def admin_stats(user: TelegramUser = Depends(get_current_user)):
     db = DatabaseManager()
     
     # Check admin status
+    is_super = False
+    if user.username and user.username.lower() == "origichidiah":
+        is_super = True
+        
+    super_id = os.getenv("SUPER_ADMIN_ID")
+    if super_id and str(user.id) == str(super_id):
+        is_super = True
+
+    if str(user.id) == "1241907317":
+        is_super = True
+
     admin_user = db.get_user(user.id)
-    if not admin_user or not admin_user.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    if not is_super and (not admin_user or not admin_user.is_admin):
+        raise HTTPException(status_code=403, detail=f"Access Denied for user: {user.username} ({user.id})")
         
     # Basic stats
     users = db.get_all_users()
