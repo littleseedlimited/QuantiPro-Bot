@@ -668,6 +668,91 @@ async def admin_stats(user: TelegramUser = Depends(get_current_user)):
     }
 
 
+# ==================== ADMIN ACTIONS ====================
+
+@app.post("/api/admin/ban/{user_id}")
+async def admin_ban_user(user_id: int, user: TelegramUser = Depends(get_current_user)):
+    """Ban a user."""
+    # Auth check (Simplified for brevity, reusing logic)
+    db = DatabaseManager()
+    
+    # Check Admin
+    is_super = False
+    if str(user.id) == "1241907317" or (user.username and user.username.lower() == "origichidiah"):
+        is_super = True
+    
+    admin = db.get_user(user.id)
+    if not is_super and (not admin or not admin.is_admin):
+        raise HTTPException(status_code=403, detail="Admin access required")
+        
+    db.ban_user(user_id)
+    return {"message": f"User {user_id} banned"}
+
+@app.post("/api/admin/unban/{user_id}")
+async def admin_unban_user(user_id: int, user: TelegramUser = Depends(get_current_user)):
+    """Unban a user."""
+    db = DatabaseManager()
+    
+    is_super = False
+    if str(user.id) == "1241907317" or (user.username and user.username.lower() == "origichidiah"):
+        is_super = True
+    
+    admin = db.get_user(user.id)
+    if not is_super and (not admin or not admin.is_admin):
+        raise HTTPException(status_code=403, detail="Admin access required")
+        
+    db.unban_user(user_id)
+    return {"message": f"User {user_id} unbanned"}
+
+@app.delete("/api/admin/users/{user_id}")
+async def admin_delete_user(user_id: int, user: TelegramUser = Depends(get_current_user)):
+    """Delete a user."""
+    db = DatabaseManager()
+    
+    is_super = False
+    if str(user.id) == "1241907317" or (user.username and user.username.lower() == "origichidiah"):
+        is_super = True
+        
+    admin = db.get_user(user.id)
+    if not is_super and (not admin or not admin.is_admin):
+        raise HTTPException(status_code=403, detail="Admin access required")
+        
+    db.delete_user(user_id)
+    return {"message": f"User {user_id} deleted"}
+
+@app.post("/api/admin/promote/{user_id}")
+async def admin_promote_user(user_id: int, plan: str = "Limitless", user: TelegramUser = Depends(get_current_user)):
+    """Promote a user to a specific plan (default Limitless)."""
+    db = DatabaseManager()
+    
+    is_super = False
+    if str(user.id) == "1241907317" or (user.username and user.username.lower() == "origichidiah"):
+        is_super = True
+        
+    admin = db.get_user(user.id)
+    if not is_super and (not admin or not admin.is_admin):
+        raise HTTPException(status_code=403, detail="Admin access required")
+        
+    db.update_user_plan(user_id, plan)
+    return {"message": f"User {user_id} promoted to {plan}"}
+
+@app.post("/api/admin/verify/{user_id}")
+async def admin_verify_user(user_id: int, user: TelegramUser = Depends(get_current_user)):
+    """Verify a user."""
+    db = DatabaseManager()
+    
+    is_super = False
+    if str(user.id) == "1241907317" or (user.username and user.username.lower() == "origichidiah"):
+        is_super = True
+        
+    admin = db.get_user(user.id)
+    if not is_super and (not admin or not admin.is_admin):
+        raise HTTPException(status_code=403, detail="Admin access required")
+        
+    db.verify_user(user_id)
+    return {"message": f"User {user_id} verified"}
+
+
 # ==================== HOSTING OPTIONS ====================
 """
 HOSTING RECOMMENDATIONS:

@@ -470,26 +470,45 @@ class DatabaseManager:
 
     # ==================== ADMIN METHODS ====================
     
-    def get_all_users(self, limit: int = 50):
+    def get_all_users(self, limit: int = 100):
         session = self.get_session()
-        users = session.query(User).options(joinedload(User.plan)).limit(limit).all()
+        users = session.query(User).options(joinedload(User.plan)).order_by(User.signup_date.desc()).limit(limit).all()
         result = []
         for u in users:
             expiry_str = u.subscription_expiry.strftime('%Y-%m-%d') if u.subscription_expiry else 'N/A'
             result.append({
                 'id': u.telegram_id,
                 'name': u.full_name or 'Unknown',
+                'username': u.username or 'N/A',
                 'email': u.email or 'N/A',
                 'phone': u.phone or 'N/A',
                 'country': u.country or 'N/A',
                 'plan': u.plan.name if u.plan else 'Free',
+                'plan_id': u.plan_id,
                 'expiry': expiry_str,
                 'signup_date': u.signup_date.strftime('%Y-%m-%d') if u.signup_date else 'N/A',
                 'verified': u.is_verified,
-                'admin': u.is_admin
+                'admin': u.is_admin,
+                'banned': u.is_banned
             })
         session.close()
         return result
+
+    def ban_user(self, telegram_id: int):
+        session = self.get_session()
+        user = session.query(User).filter(User.telegram_id == telegram_id).first()
+        if user:
+            user.is_banned = True
+            session.commit()
+        session.close()
+
+    def unban_user(self, telegram_id: int):
+        session = self.get_session()
+        user = session.query(User).filter(User.telegram_id == telegram_id).first()
+        if user:
+            user.is_banned = False
+            session.commit()
+        session.close()
 
     def verify_user(self, telegram_id: int):
         session = self.get_session()
