@@ -476,11 +476,23 @@ body {
     background: var(--gradient-primary);
     color: white;
     font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 12px;
+}
+
+.crosstab-table tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.crosstab-table tr:hover {
+    background: rgba(108, 92, 231, 0.05);
 }
 
 .crosstab-table td:first-child {
     text-align: left;
     background: rgba(108, 92, 231, 0.1);
+    font-weight: 500;
 }
 
 .results-text {

@@ -417,10 +417,35 @@ async def analyze_visual(
         df, _ = FileManager.load_file(file_path)
         
         chart_type = request.options.get("chart_type", "histogram")
+        config = request.options # Pass full options as config
         
-        # TODO: Implement proper visualizer calls based on type
-        # Placeholder for now
-        img_path = None
+        if chart_type == "histogram":
+            if not request.variables: raise ValueError("Variable required")
+            img_path = Visualizer.create_histogram(df, request.variables[0], config)
+            
+        elif chart_type == "bar":
+            if len(request.variables) < 1: raise ValueError("Variable required")
+            x = request.variables[0]
+            y = request.variables[1] if len(request.variables) > 1 else None
+            img_path = Visualizer.create_bar_chart(df, x, y, config)
+            
+        elif chart_type == "scatter":
+            if len(request.variables) < 2: raise ValueError("2 Variables required")
+            img_path = Visualizer.create_scatterplot(df, request.variables[0], request.variables[1], config)
+            
+        elif chart_type == "pie":
+            if not request.variables: raise ValueError("Variable required")
+            img_path = Visualizer.create_pie_chart(df, request.variables[0], config)
+            
+        elif chart_type == "boxplot":
+            if len(request.variables) < 2: raise ValueError("2 Variables required")
+            img_path = Visualizer.create_boxplot(df, request.variables[0], request.variables[1], config)
+            
+        elif chart_type == "heatmap":
+            img_path = Visualizer.create_correlation_heatmap(df, request.variables, config)
+            
+        else:
+            raise ValueError(f"Unknown chart type: {chart_type}")
         
         return {
             "success": True,

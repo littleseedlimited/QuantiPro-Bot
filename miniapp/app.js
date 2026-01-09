@@ -216,15 +216,142 @@ async function handleFileUpload(file) {
     }
 }
 
-// Variable Selection
+// Variable Selection UI
 function showVariableSelect(analysisType) {
     currentAnalysisType = analysisType;
     selectedVariables = [];
 
-    const variableList = document.getElementById('variableList');
-    variableList.innerHTML = '';
+    const screen = document.getElementById('variableScreen');
+    const container = document.getElementById('variableList');
+    container.innerHTML = '';
 
-    const columns = analysisType === 'correlation' || analysisType === 'regression'
+    // Header
+    const titleMap = {
+        'crosstab': 'Select Row & Column',
+        'correlation': 'Select Variables (2+)',
+        'regression': 'Select Target & Predictors',
+        'visual': 'Select Variable(s)'
+    };
+    document.getElementById('variableTitle').textContent = titleMap[analysisType] || 'Select Variables';
+
+    // UI GENERATION
+    if (analysisType === 'crosstab') {
+        // CROSSTAB: Specific Row/Col Selectors
+        renderCrosstabSelectors(container);
+    }
+    else if (analysisType === 'regression') {
+        // REGRESSION: Target vs Predictors
+        renderRegressionSelectors(container);
+    }
+    else {
+        // STANDARD: Checkbox List
+        renderCheckboxList(container, analysisType);
+    }
+
+    // Options for Visuals
+    if (analysisType === 'visual') {
+        renderVisualOptions(container);
+    }
+
+    showScreen('variableScreen');
+}
+
+function renderCrosstabSelectors(container) {
+    const cols = currentFile.columns; // Allow all columns for crosstab
+
+    container.innerHTML = `
+        <div class="form-group">
+            <label>Row Variable (Group By)</label>
+            <select id="crosstabRow" class="form-select" onchange="updateCrosstabSelection()">
+                <option value="">Select Row...</option>
+                ${cols.map(c => `<option value="${c}">${c}</option>`).join('')}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Column Variable (Compare)</label>
+            <select id="crosstabCol" class="form-select" onchange="updateCrosstabSelection()">
+                <option value="">Select Column...</option>
+                ${cols.map(c => `<option value="${c}">${c}</option>`).join('')}
+            </select>
+        </div>
+        <div class="hint-box">
+             💡 Select two categorical variables to see their relationship.
+        </div>
+    `;
+}
+
+function updateCrosstabSelection() {
+    const r = document.getElementById('crosstabRow').value;
+    const c = document.getElementById('crosstabCol').value;
+    selectedVariables = [];
+    if (r) selectedVariables.push(r);
+    if (c) selectedVariables.push(c);
+}
+
+function renderVisualOptions(container) {
+    // Add Chart Options
+    const optsDiv = document.createElement('div');
+    optsDiv.className = 'visual-options';
+    optsDiv.style.marginTop = '20px';
+    optsDiv.style.borderTop = '1px solid var(--card-border)';
+    optsDiv.style.paddingTop = '15px';
+
+    optsDiv.innerHTML = `
+        <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+             <input type="checkbox" id="chkDataLabels" style="width:18px; height:18px;">
+             <span>Show Data Labels (Values/%)</span>
+        </label>
+        ${window.currentVisualType === 'pie' ? `
+        <label style="display:flex; align-items:center; gap:10px; cursor:pointer; margin-top:10px;">
+             <input type="checkbox" id="chkLegend" checked style="width:18px; height:18px;">
+             <span>Show Legend</span>
+        </label>` : ''}
+    `;
+    container.appendChild(optsDiv);
+}
+
+function renderRegressionSelectors(container) {
+    const numeric = currentFile.numeric_columns;
+
+    container.innerHTML = `
+        <div class="form-group">
+            <label>Target Variable (Y) - What you want to predict</label>
+            <select id="regTarget" class="form-select" onchange="updateRegressionSelection()">
+                <option value="">Select Target...</option>
+                ${numeric.map(c => `<option value="${c}">${c}</option>`).join('')}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Predictors (X) - Factors influencing Y</label>
+            <div id="regPredictors" class="checkbox-group">
+                 ${numeric.map(c => `
+                    <div class="variable-item" onclick="toggleRegPredictor(this, '${c}')">
+                        <div class="variable-checkbox"></div>
+                        <span>${c}</span>
+                    </div>
+                 `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+let regTarget = null;
+let regPredictors = [];
+
+function toggleRegPredictor(el, col) {
+    el.classList.toggle('selected');
+    if (regPredictors.includes(col)) regPredictors = regPredictors.filter(c => c !== col);
+    else regPredictors.push(col);
+    updateRegressionSelection();
+}
+
+function updateRegressionSelection() {
+    const target = document.getElementById('regTarget').value;
+    selectedVariables = target ? [target, ...regPredictors] : [];
+}
+
+function renderCheckboxList(container, analysisType) {
+    const columns = (analysisType === 'correlation' || analysisType === 'histogram' || analysisType === 'boxplot')
         ? currentFile.numeric_columns
         : currentFile.columns;
 
@@ -236,16 +363,15 @@ function showVariableSelect(analysisType) {
             <span>${col}</span>
         `;
         item.addEventListener('click', () => toggleVariable(item, col));
-        variableList.appendChild(item);
+        container.appendChild(item);
     });
-
-    document.getElementById('variableTitle').textContent = `Select Variables for ${analysisType}`;
-    showScreen('variableScreen');
 }
 
-function toggleVariable(element, variable) {
-    element.classList.toggle('selected');
 
+function toggleVariable(element, variable) {
+    element.classList.toggle('selected'); // UI Toggle
+
+    // Logic Toggle
     if (selectedVariables.includes(variable)) {
         selectedVariables = selectedVariables.filter(v => v !== variable);
     } else {
@@ -272,7 +398,15 @@ async function runAnalysis(type) {
         };
 
         if (type === 'visual' && window.currentVisualType) {
-            payload.options = { chart_type: window.currentVisualType };
+            const opts = { chart_type: window.currentVisualType };
+            // Capture UI options
+            const chkLabels = document.getElementById('chkDataLabels');
+            const chkLegend = document.getElementById('chkLegend');
+
+            if (chkLabels && chkLabels.checked) opts.data_labels = true;
+            if (chkLegend && chkLegend.checked) opts.legend = true;
+
+            payload.options = opts;
         }
 
         const result = await apiRequest(`/analyze/${type}`, {
@@ -599,9 +733,14 @@ async function deleteProject(projectId) {
 }
 
 // Export results as CSV download
-function exportResults() {
+function exportResults(format = 'csv') {
     if (!window.lastResult) {
         alert('No results to export');
+        return;
+    }
+
+    if (format === 'excel') {
+        exportToExcel();
         return;
     }
 
@@ -630,6 +769,36 @@ function exportResults() {
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = `quantiprobot_results_${Date.now()}.csv`;
+    link.click();
+
+    if (tg) tg.HapticFeedback.notificationOccurred('success');
+}
+
+function exportToExcel() {
+    // Simple HTML Table export
+    const container = document.getElementById('resultsContainer');
+    // Prefer table if exists
+    const table = container.querySelector('table');
+
+    let content = "";
+    if (table) {
+        content = table.outerHTML;
+    } else if (window.lastResult && window.lastResult.formatted) {
+        content = window.lastResult.formatted;
+    } else {
+        alert("No tabular data to export to Excel.");
+        return;
+    }
+
+    const template = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Analysis Results</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>
+        <body>${content}</body></html>`;
+
+    const blob = new Blob([template], { type: 'application/vnd.ms-excel' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `analysis_report_${Date.now()}.xls`;
     link.click();
 
     if (tg) tg.HapticFeedback.notificationOccurred('success');
