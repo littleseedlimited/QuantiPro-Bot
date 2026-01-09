@@ -41,11 +41,17 @@ async function loadUsers() {
         });
 
         if (!response.ok) {
+            let errorMessage = 'Upload failed';
+            try {
+                const errData = await response.json();
+                errorMessage = errData.detail || errorMessage;
+            } catch (e) { }
+
             if (response.status === 403) {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: red;">🚫 Access Denied</td></tr>';
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: red;">🚫 ${errorMessage}</td></tr>`;
                 return;
             }
-            throw new Error('Upload failed');
+            throw new Error(errorMessage);
         }
 
         const data = await response.json();
