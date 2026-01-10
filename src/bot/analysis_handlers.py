@@ -51,6 +51,7 @@ async def show_guide(update: Update, context: ContextTypes.DEFAULT_TYPE, test_ke
         return await start_hypothesis(update, context)
         
     context.user_data['pending_test'] = test_key
+    context.user_data['ai_chat_mode'] = False # Ensure AI chat is off during guided analysis
     
     text = (
         f"🧪 **{guide['name']}**\n\n"

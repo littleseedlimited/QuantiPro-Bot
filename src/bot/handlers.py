@@ -1478,6 +1478,9 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         markup = get_column_markup(all_cols, extra_buttons=['✅ Done Selecting'], selected_items=selected)
         await update.message.reply_text(f"✅ Selected: {', '.join(selected)}\nSelect more or tap 'Done':", reply_markup=markup)
         return ACTION
+
+    # Handle crosstab row variable(s) selection
+    elif context.user_data.get('awaiting_crosstab_row'):
         all_cols = context.user_data.get('columns', [])
         mode = context.user_data.get('crosstab_mode', 'simple')
         
