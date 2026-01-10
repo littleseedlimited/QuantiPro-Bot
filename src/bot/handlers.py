@@ -467,7 +467,9 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # -------------------------
 
     # --- HANDLE EXPORT ---
-    if choice in ['📤 Export to Excel', '📤 Export to CSV']:
+    # Normalize icons to handle both 📤 and 📥
+    clean_choice = choice.replace('📤', '📥')
+    if clean_choice in ['📥 Export to Excel', '📥 Export to CSV']:
         last = context.user_data.get('last_analysis')
         if not last:
             await update.message.reply_text("⚠️ No recent analysis results found to export.")
@@ -736,7 +738,9 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
     # --- EXPORT HANDLERS ---
-    if choice in ['📤 Export to Excel', '📤 Export to CSV']:
+    # Normalize icons to handle both 📤 and 📥
+    clean_choice = choice.replace('📤', '📥')
+    if clean_choice in ['📥 Export to Excel', '📥 Export to CSV']:
         last_analysis = context.user_data.get('last_analysis')
         if not last_analysis:
             await update.message.reply_text("❌ No analysis to export. Run an analysis first.")
@@ -758,7 +762,7 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 export_df = pd.DataFrame([data])
             
-            if choice == '📤 Export to Excel':
+            if clean_choice == '📥 Export to Excel':
                 with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
                     export_df.to_excel(tmp.name, index=True, sheet_name=title[:30])
                     tmp_path = tmp.name
@@ -1438,7 +1442,6 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                       
                       # Send table image
                       try:
-                          from src.core.visualizer import Visualizer
                           labels = context.user_data.get('variable_labels', {})
                           var_label = labels.get(var, var)
                           img_path = Visualizer.create_stats_table_image(res_df, title=f"Frequency: {var_label}")
@@ -1725,7 +1728,7 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(
                     "✅ Analysis Complete!\n\n📥 Export options:",
                     reply_markup=ReplyKeyboardMarkup([
-                        ['📤 Export to Excel', '📤 Export to CSV'],
+                        ['📥 Export to Excel', '📥 Export to CSV'],
                         ['◀️ Back to Menu']
                     ], one_time_keyboard=True, resize_keyboard=True)
                 )
@@ -1780,7 +1783,7 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(
                     "📥 Export options:",
                     reply_markup=ReplyKeyboardMarkup([
-                        ['📤 Export to Excel', '📤 Export to CSV'],
+                        ['📥 Export to Excel', '📥 Export to CSV'],
                         ['◀️ Back to Menu']
                     ], one_time_keyboard=True, resize_keyboard=True)
                 )
@@ -3585,7 +3588,9 @@ async def ai_chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "There is a significant difference between groups",
         "There is a significant relationship between X and Y",
         "X significantly predicts Y",
-        "No hypothesis (exploratory study)"
+        "No hypothesis (exploratory study)",
+        "📤 Export to Excel", "📤 Export to CSV",
+        "📥 Export to Excel", "📥 Export to CSV"
     ]
     
     # Check exact match or if it starts with a known button icon pattern

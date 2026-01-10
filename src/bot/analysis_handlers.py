@@ -1,6 +1,7 @@
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import ContextTypes, ConversationHandler, MessageHandler, filters
 from src.core.analyzer import Analyzer
+from src.core.visualizer import Visualizer
 import pandas as pd
 import os
 
@@ -177,7 +178,6 @@ async def guide_confirm_handler(update: Update, context: ContextTypes.DEFAULT_TY
             text_summary = Analyzer.format_stats_mobile(stats)
             
             # SLEEK OPTION: Generate and send image
-            from src.core.visualizer import Visualizer
             img_path = Visualizer.create_stats_table_image(stats)
             
             if img_path and os.path.exists(img_path):
@@ -401,7 +401,7 @@ async def test_var_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "📥 Export this result?",
             reply_markup=ReplyKeyboardMarkup([
-                ['📤 Export to Excel', '📤 Export to CSV'],
+                ['📥 Export to Excel', '📥 Export to CSV'],
                 ['◀️ Back to Menu']
             ], one_time_keyboard=True, resize_keyboard=True)
         )
@@ -476,7 +476,7 @@ async def anova_dv_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "📥 Export this result?",
             reply_markup=ReplyKeyboardMarkup([
-                ['📤 Export to Excel', '📤 Export to CSV'],
+                ['📥 Export to Excel', '📥 Export to CSV'],
                 ['◀️ Back to Menu']
             ], one_time_keyboard=True, resize_keyboard=True)
         )
@@ -535,7 +535,7 @@ async def reliability_select_handler(update: Update, context: ContextTypes.DEFAU
             await update.message.reply_text(
                 "📥 Export this result?",
                 reply_markup=ReplyKeyboardMarkup([
-                    ['📤 Export to Excel', '📤 Export to CSV'],
+                    ['📥 Export to Excel', '📥 Export to CSV'],
                     ['◀️ Back to Menu']
                 ], one_time_keyboard=True, resize_keyboard=True)
             )
