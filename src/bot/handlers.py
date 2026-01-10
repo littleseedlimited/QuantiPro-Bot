@@ -1909,10 +1909,20 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['awaiting_reference_file'] = True
         return ACTION
 
-    # Fallback: show menu again
     # Fallback: Treat as AI Chat Query if not a menu command
     # This ensures "seamless AI" integration as requested
     await ai_chat_handler(update, context)
+    
+    # Return current state to avoid unintentionally leaving UPLOAD or other specific states
+    # We check the ConversationHandler state later, but for now, returning ACTION is safer 
+    # than ending, but returning the *actual* current state if we can find it is best.
+    # However, since action_handler handles both UPLOAD and ACTION, if we're in UPLOAD
+    # and we get here, it's safer to return UPLOAD.
+    
+    # Simple check for UPLOAD state (df is None usually means UPLOAD or initial ACTION)
+    if 'file_path' not in context.user_data or not context.user_data.get('file_path'):
+        return UPLOAD
+        
     return ACTION
 
 
@@ -3567,7 +3577,15 @@ async def ai_chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Times New Roman", "Arial", "Calibri", "Georgia",
         "Single (1.0)", "1.5 Spacing", "Double (2.0)",
         "APA 7th", "MLA 9th", "Harvard", "Vancouver",
-        "📝 Short (1500-2500)", "📄 Medium (3000-5000)"
+        "📝 Short (1500-2500)", "📄 Medium (3000-5000)",
+        "Is there a significant difference between groups?",
+        "Is there a relationship between variables?",
+        "Can we predict an outcome from predictors?",
+        "What are the characteristics of the sample?",
+        "There is a significant difference between groups",
+        "There is a significant relationship between X and Y",
+        "X significantly predicts Y",
+        "No hypothesis (exploratory study)"
     ]
     
     # Check exact match or if it starts with a known button icon pattern

@@ -165,7 +165,8 @@ class InterviewManager:
                 "✅ **Metadata Captured!**\n\n"
                 f"Hypothesis: _{choice}_\n\n"
                 "Now, please **upload your data file** (CSV or Excel) to begin the analysis.",
-                parse_mode='Markdown'
+                parse_mode='Markdown',
+                reply_markup=ReplyKeyboardMarkup([['❌ Cancel Analysis']], resize_keyboard=True)
             )
             return UPLOAD
             
