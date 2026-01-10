@@ -216,18 +216,6 @@ class Visualizer:
         plt.close(fig)
         return path
 
-    @staticmethod
-    def create_histogram(df: pd.DataFrame, column: str, config: dict = None) -> Optional[str]:
-        plt, sns = Visualizer._get_plt_sns()
-        if not plt: return None
-        Visualizer._setup_figure(f'Distribution of {column}', xlabel=column, ylabel='Frequency', config=config)
-        
-        palette = config.get('palette', 'viridis') if config else 'viridis'
-        # Histplot doesn't take palette directly for single series usually, but we can try color
-        color = sns.color_palette(palette)[0] if palette in sns.color_palette() else '#3498db'
-            
-        sns.histplot(data=df, x=column, kde=True, color=color)
-        return Visualizer._save_plot(f'hist_{column}.png')
 
     @staticmethod
     def create_boxplot(df: pd.DataFrame, x: str, y: str, config: dict = None) -> Optional[str]:
@@ -291,45 +279,123 @@ class Visualizer:
         plt.yticks(rotation=0)
         return Visualizer._save_plot('correlation_matrix.png')
 
-    @staticmethod
-    def create_bar_chart(df: pd.DataFrame, x: str, y: str = None, config: dict = None) -> Optional[str]:
-        """Create a bar chart with auto-rotation and sorting."""
-        plt, sns = Visualizer._get_plt_sns()
-        if not plt: return None
-        Visualizer._apply_config(config)
-        return Visualizer._save_plot(f'bar_{x}_{y or "count"}.png')
 
     @staticmethod
-    def create_crosstab_heatmap(df: pd.DataFrame, row: str, col: str, config: dict = None) -> Optional[str]:
-        """Create a styled heatmap/table for crosstabs."""
-        plt, sns = Visualizer._get_plt_sns()
+    def create_rich_crosstab_image(ct_result: dict, config: dict = None) -> Optional[str]:
+        """
+        Create a high-quality, professional table image for a crosstab.
+        Combines counts, row percentages, and column percentages into cell text.
+        Includes margins (Totals).
+        """
+        plt, _ = Visualizer._get_plt_sns()
         if not plt: return None
         
-        # Calculate Crosstab
-        ct = pd.crosstab(df[row], df[col])
+        counts = ct_result.get('full_counts')
+        if counts is None: counts = ct_result.get('counts')
+        if counts is None: return None
         
-        # Figure setup
-        config = config or {}
+        row_pct = ct_result.get('row_percentages')
+        col_pct = ct_result.get('col_percentages')
         
-        # Determine labels
-        x_label = config.get('xlabel', col)
-        y_label = config.get('ylabel', row)
-        title = config.get('title', f'Crosstabulation: {row} vs {col}')
+        row_var = ct_result.get('row_var', 'Row')
+        col_var = ct_result.get('col_var', 'Col')
         
-        Visualizer._setup_figure(title, xlabel=x_label, ylabel=y_label, config=config)
+        # Build cell text
+        n_rows, n_cols = counts.shape
+        cell_text = []
         
-        # Heatmap
-        palette = config.get('palette', 'YlGnBu')  # Heatmap friendly default
-        sns.heatmap(ct, annot=True, fmt='d', cmap=palette, cbar=False, 
-                   annot_kws={'size': 12, 'weight': 'bold'})
+        for i, row_label in enumerate(counts.index):
+            row_data = []
+            for j, col_label in enumerate(counts.columns):
+                # Count
+                val = counts.iloc[i, j]
+                text = f"{int(val) if pd.notnull(val) else 0}"
+                
+                # Percentages (only if not a Total row/col or if we want them there too)
+                # Usually we show percentages for the internal cells
+                if row_label != 'Total' and col_label != 'Total':
+                    sub_parts = []
+                    if row_pct is not None:
+                        rp = row_pct.loc[row_label, col_label]
+                        sub_parts.append(f"{rp:.1f}%R")
+                    if col_pct is not None:
+                        cp = col_pct.loc[row_label, col_label]
+                        sub_parts.append(f"{cp:.1f}%C")
+                    
+                    if sub_parts:
+                        text += "\n(" + ", ".join(sub_parts) + ")"
+                
+                row_data.append(text)
+            cell_text.append(row_data)
+            
+        # Sizing
+        fig_width = max(10, min(24, n_cols * 2.2))
+        fig_height = max(5, min(18, n_rows * 1.2 + 2))
         
-        plt.title(title, fontsize=14, pad=20)
-        plt.xlabel(x_label, fontsize=12)
-        plt.ylabel(y_label, fontsize=12)
-        plt.xticks(rotation=45, ha='right')
-        plt.yticks(rotation=0)
+        plt.rcParams['figure.facecolor'] = '#ffffff'
+        fig, ax = plt.subplots(figsize=(fig_width, fig_height), dpi=140)
+        ax.axis('off')
         
-        return Visualizer._save_plot(f'crosstab_{row}_{col}.png')
+        # Professional Colors (Matching user's requested style)
+        title_bg = '#3f51b5'     # Indigo Blue for title bar
+        header_bg = '#e8f5e9'    # Very light green for category headers
+        total_bg = '#fff0f0'     # Light pinkish for Totals (Base)
+        edge_color = '#bccad6'
+        
+        table = ax.table(
+            cellText=cell_text,
+            colLabels=counts.columns,
+            rowLabels=counts.index,
+            cellLoc='center',
+            loc='center',
+            edges='closed'
+        )
+        
+        table.auto_set_font_size(False)
+        table.set_fontsize(10)
+        table.scale(1.2, 4.4) 
+        
+        # Styling cells precisely
+        for (i, j), cell in table.get_celld().items():
+            cell.set_edgecolor(edge_color)
+            cell.set_linewidth(0.8)
+            
+            # Header row (Column categories)
+            if i == 0:
+                cell.set_text_props(weight='bold', color='#1a237e', fontsize=11)
+                cell.set_facecolor(header_bg)
+            # Index column (Row categories)
+            elif j == -1:
+                cell.set_text_props(weight='bold', color='#1a237e')
+                cell.set_facecolor(header_bg)
+            # Internal Cells
+            else:
+                row_label = counts.index[i-1]
+                col_label = counts.columns[j]
+                
+                # Check if it's a Total (Base) cell
+                if row_label == 'Total' or col_label == 'Total':
+                    cell.set_facecolor(total_bg)
+                    cell.set_text_props(weight='bold', color='#b71c1c') # Dark red for totals
+                else:
+                    cell.set_facecolor('#ffffff')
+                    cell.set_text_props(color='#2c3e50')
+                
+        # Title with Indigo Bar effect
+        plt.title(title, fontsize=20, fontweight='bold', color='white', pad=40, 
+                 backgroundcolor=title_bg)
+        
+        # Subtitle for Key
+        key_text = []
+        if row_pct is not None: key_text.append("%R = Row Percentage")
+        if col_pct is not None: key_text.append("%C = Column Percentage")
+        if key_text:
+            plt.text(0.5, 0.95, " | ".join(key_text), transform=ax.transAxes, 
+                     ha='center', fontsize=10, style='italic', color='#7f8c8d')
+
+        path = Visualizer._save_plot('rich_crosstab.png')
+        plt.close(fig)
+        return path
 
     @staticmethod
     def create_bar_chart(df: pd.DataFrame, x: str, y: str = None, config: dict = None) -> Optional[str]:
@@ -554,40 +620,6 @@ class Visualizer:
         plt.xticks(rotation=45, ha='right')
         return Visualizer._save_plot(f'violin_{x}_{y}.png')
 
-    @staticmethod
-    def create_stats_table_image(stats_df: pd.DataFrame, title: str = "Descriptive Statistics") -> Optional[str]:
-        """Render a dataframe as a static image table."""
-        plt, sns = Visualizer._get_plt_sns()
-        if not plt: return None
-        
-        try:
-            # Calculate size based on rows/cols
-            rows, cols = stats_df.shape
-            w = max(8, cols * 1.5)
-            h = max(4, rows * 0.5 + 2)
-            
-            fig, ax = plt.subplots(figsize=(w, h))
-            ax.axis('off')
-            
-            # Create table
-            table = plt.table(cellText=stats_df.round(3).values,
-                              colLabels=stats_df.columns,
-                              rowLabels=stats_df.index,
-                              cellLoc='center',
-                              loc='center',
-                              bbox=[0, 0, 1, 0.9])
-            
-            table.auto_set_font_size(False)
-            table.set_fontsize(11)
-            table.scale(1.2, 1.2)
-            
-            plt.title(title, fontsize=16, fontweight='bold', y=0.95)
-            
-            path = Visualizer._save_plot("stats_table.png")
-            return path
-        except Exception as e:
-            print(f"Stats table error: {e}")
-            return None
 
     @staticmethod
     def create_pair_plot(df: pd.DataFrame, columns: List[str]) -> Optional[str]:

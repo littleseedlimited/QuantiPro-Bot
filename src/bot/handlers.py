@@ -1662,28 +1662,48 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     raise ValueError("Dataset not loaded.")
                 await update.message.reply_text("⚙️ Creating crosstabulation...")
                 
+                display = context.user_data.get('crosstab_display', {'counts': True})
                 all_outputs = []
+                
                 for row_var in row_vars:
-                    # 1. Visual: Create Heatmap
+                    # 1. Run Analysis with user-selected flags
+                    ct_res = Analyzer.crosstab(
+                        df, row_var, col_var, 
+                        show_row_pct=display.get('row_pct', False),
+                        show_col_pct=display.get('col_pct', False),
+                        show_total_pct=display.get('total_pct', False)
+                    )
+                    
+                    if "error" in ct_res:
+                         await update.message.reply_text(f"⚠️ Error with {row_var}: {ct_res['error']}")
+                         continue
+                         
+                    # 2. Visual: Create Rich Table Image
                     labels = context.user_data.get('variable_labels', {})
                     row_lbl = labels.get(row_var, row_var)
                     col_lbl = labels.get(col_var, col_var)
                     
                     config = {
-                        'title': f'{row_lbl} by {col_lbl}',
+                        'title': f'Cross Tabulation: {row_lbl} vs {col_lbl}',
                         'ylabel': row_lbl,
-                        'xlabel': col_lbl
+                        'xlabel': col_lbl,
+                        'row_var': row_lbl,
+                        'col_var': col_lbl
                     }
                     
-                    heatmap_path = Visualizer.create_crosstab_heatmap(df, row_var, col_var, config=config)
+                    # Store result for the next loop/export
+                    result = ct_res 
                     
-                    if heatmap_path:
+                    image_path = Visualizer.create_rich_crosstab_image(ct_res, config=config)
+                    
+                    if image_path:
                         await update.message.reply_photo(
-                            photo=open(heatmap_path, 'rb'),
+                            photo=open(image_path, 'rb'),
                             caption=f"📊 **Crosstab: {row_var} × {col_var}**"
                         )
                     else:
-                        await update.message.reply_text(f"⚠️ Could not generate heatmap for {row_var}")
+                        # Fallback to text if image fails
+                        await update.message.reply_text(Analyzer.format_crosstab_mobile(ct_res))
 
                     # 2. Data: Get detailed stats for Export
                     # We compute all percentages for the Excel export as requested

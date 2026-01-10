@@ -469,45 +469,12 @@ class Analyzer:
             output += "```\n"
 
             # Add percentages summary if requested/available
-            if 'row_percentages' in ct_result:
-                output += "\n*Detailed percentages available in export.*"
+            output += "\n*Detailed percentages available in export.*"
                 
         except Exception as e:
             output += f"\n(Table Error: {e})"
             
         return output
-        has_tot = 'total_percentages' in ct_result
-        
-        # Legend
-        if has_row or has_col or has_tot:
-            legend = ["Key:"]
-            if has_row: legend.append("R=Row%")
-            if has_col: legend.append("C=Col%")
-            if has_tot: legend.append("T=Tot%")
-            lines.append(f"_{' '.join(legend)}_")
-            lines.append("")
-        
-        # Body
-        for r_val in counts.index:
-            r_label = str(r_val)[:25]
-            lines.append(f"📍 **{r_label}**")
-            
-            for c_val in counts.columns:
-                n = counts.loc[r_val, c_val]
-                
-                pct_parts = []
-                if has_row:
-                    pct_parts.append(f"R:{ct_result['row_percentages'].loc[r_val, c_val]:.0f}%")
-                if has_col:
-                    pct_parts.append(f"C:{ct_result['col_percentages'].loc[r_val, c_val]:.0f}%")
-                if has_tot:
-                    pct_parts.append(f"T:{ct_result['total_percentages'].loc[r_val, c_val]:.0f}%")
-                
-                pct_str = f" _({', '.join(pct_parts)})_" if pct_parts else ""
-                lines.append(f"   ▫️ {c_val}: **{n}**{pct_str}")
-            lines.append("")
-        
-        return "\n".join(lines).strip()
 
     @staticmethod
     def format_stats_mobile(desc_df: pd.DataFrame) -> str:
