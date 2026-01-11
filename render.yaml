@@ -13,10 +13,6 @@ services:
         value: /app/data
       - key: PYTHONUNBUFFERED
         value: "1"
-    disk:
-      name: bot-files
-      mountPath: /app/data
-      sizeGB: 1
 
 databases:
   - name: quantiprodb
