@@ -98,6 +98,14 @@ class ReportRequest(BaseModel):
 
 # ==================== AUTH ====================
 
+@app.get("/")
+async def root():
+    return {"message": "QuantiProBot API is running", "status": "online"}
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+
 def verify_telegram_data(init_data: str) -> Optional[TelegramUser]:
     """Verify Telegram Web App initData and extract user."""
     if not BOT_TOKEN:

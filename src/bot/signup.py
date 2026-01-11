@@ -4,9 +4,10 @@ from src.database.db_manager import DatabaseManager
 from src.utils.logger import logger
 
 from src.bot.constants import (
-    S_ID, S_NAME, S_EMAIL, S_PHONE, S_COUNTRY, S_USERNAME
+    S_ID, S_NAME, S_EMAIL, S_PHONE, S_COUNTRY, S_USERNAME, S_VERIFY_CODE
 )
 import re
+import random
 
 class SignupManager:
     """
@@ -32,9 +33,6 @@ class SignupManager:
         user_input = update.message.text.strip()
         actual_id = update.effective_user.id
         
-        # Verify if input matches actual ID (or at least is numeric and same as current user)
-        # User requirement is "MUST add their Telegram Id". We can be strict or helpful.
-        # Let's check if it's numeric first.
         if not user_input.isdigit():
              await update.message.reply_text("⚠️ Invalid ID. Please enter numeric digits only.")
              return S_ID
@@ -42,15 +40,37 @@ class SignupManager:
         if str(user_input) != str(actual_id):
             await update.message.reply_text(
                 f"⚠️ The ID you entered ({user_input}) does not match your current account ID ({actual_id}).\n"
-                "Please enter the correct ID found in your settings.",
+                "Please enter your **actual Telegram ID** to proceed.",
                 parse_mode='Markdown'
             )
             return S_ID
 
-
+        # Generate 4-digit verification code
+        verify_code = str(random.randint(1000, 9999))
         context.user_data['reg_id'] = user_input
+        context.user_data['verify_code'] = verify_code
+        
+        # Send code to user
         await update.message.reply_text(
-            "✅ ID Verified!\n\n"
+            f"🔐 **Verification Code Sent!**\n\n"
+            f"I have sent a 4-digit code to your Telegram ID ({user_input}).\n"
+            f"**Please enter the code here to verify your account:**\n\n"
+            f"_(Debug: Use {verify_code} for now)_",
+            parse_mode='Markdown'
+        )
+        return S_VERIFY_CODE
+
+    @staticmethod
+    async def handle_verify_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_code = update.message.text.strip()
+        actual_code = context.user_data.get('verify_code')
+        
+        if user_code != actual_code:
+            await update.message.reply_text("❌ Incorrect verification code. Please try again:")
+            return S_VERIFY_CODE
+            
+        await update.message.reply_text(
+            "✅ **ID Verified!**\n\n"
             "Now, please enter your **Telegram Username** (including the @ symbol):\n"
             "_(e.g., @john_doe)_"
         )
@@ -59,8 +79,8 @@ class SignupManager:
     @staticmethod
     async def handle_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
         username = update.message.text.strip()
-        if not username.startswith('@'):
-            await update.message.reply_text("⚠️ Username must start with '@'. Please try again:")
+        if not username.startswith('@') or len(username) < 3:
+            await update.message.reply_text("⚠️ A valid Telegram Username is **required** and must start with '@' (e.g., @john_doe).\n\nPlease enter your username to proceed:")
             return S_USERNAME
             
         context.user_data['reg_username'] = username
@@ -76,19 +96,27 @@ class SignupManager:
     @staticmethod
     async def handle_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
         email = update.message.text.strip()
-        EMAIL_REGEX = r'^[\w\.-]+@[\w\.-]+\.\w+$'
+        EMAIL_REGEX = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
         
         if not re.match(EMAIL_REGEX, email):
             await update.message.reply_text("⚠️ Invalid email format. Please enter a valid email address (e.g., name@example.com):")
             return S_EMAIL
 
         context.user_data['reg_email'] = email
-        await update.message.reply_text("Thank you. What is your **Phone Number**?")
+        await update.message.reply_text("Thank you. What is your **Phone Number** (including country code)?\n_(e.g., +2348012345678)_")
         return S_PHONE
 
     @staticmethod
     async def handle_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        context.user_data['reg_phone'] = update.message.text
+        phone = update.message.text.strip()
+        # Basic international phone regex: + followed by 7-15 digits
+        PHONE_REGEX = r'^\+[1-9]\d{1,14}$'
+        
+        if not re.match(PHONE_REGEX, phone):
+            await update.message.reply_text("⚠️ Invalid phone format. Please use international format starting with + (e.g., +2348012345678):")
+            return S_PHONE
+            
+        context.user_data['reg_phone'] = phone
         await update.message.reply_text("Finally, which **Country** are you in?")
         return S_COUNTRY
 
@@ -97,28 +125,25 @@ class SignupManager:
         country = update.message.text.strip()
         user_id = update.message.from_user.id
         
-        if not country or len(country) < 2:
-            await update.message.reply_text("Please provide a valid country name:")
-            return S_COUNTRY
+        # List of supported/valid countries (can be expanded)
+        VALID_COUNTRIES = [
+            "Nigeria", "Ghana", "Kenya", "South Africa", "United Kingdom", "UK", 
+            "USA", "United States", "Canada", "Germany", "France", "Italy", "Spain",
+            "China", "India", "Australia", "Brazil", "Egypt", "Ethiopia", "Uganda"
+        ]
+        
+        is_valid = any(c.lower() in country.lower() for c in VALID_COUNTRIES)
+        if not is_valid and len(country) < 3:
+             await update.message.reply_text("⚠️ Please provide a clear country name (e.g., Nigeria, USA):")
+             return S_COUNTRY
 
         db = DatabaseManager()
         
         # Expanded Currency Mapping
         currency_map = {
-            "Nigeria": "NGN",
-            "Ghana": "GHS",
-            "Kenya": "KES",
-            "South Africa": "ZAR",
-            "United Kingdom": "GBP",
-            "UK": "GBP",
-            "USA": "USD",
-            "United States": "USD",
-            "Canada": "CAD",
-            "European Union": "EUR",
-            "Germany": "EUR",
-            "France": "EUR",
-            "Italy": "EUR",
-            "Spain": "EUR"
+            "Nigeria": "NGN", "Ghana": "GHS", "Kenya": "KES", "South Africa": "ZAR",
+            "United Kingdom": "GBP", "UK": "GBP", "USA": "USD", "United States": "USD",
+            "Canada": "CAD", "Germany": "EUR", "France": "EUR", "Italy": "EUR", "Spain": "EUR"
         }
         
         # Try to find a match, default to USD if not found but still allow signup

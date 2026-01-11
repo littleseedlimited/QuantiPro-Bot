@@ -116,9 +116,13 @@ class InterviewManager:
         
         msg = "Select a **Research Question** type or type your own:"
         if q_sugg:
+            # Ensure bulleted list if it's not already
+            if "\n-" not in q_sugg and "\n*" not in q_sugg and "\n1." not in q_sugg:
+                q_sugg = "\n".join([f"• {line.strip()}" for line in q_sugg.split('\n') if line.strip()])
+            
             msg = (
                 "Select a **Research Question** type, use a suggestion, or type your own:\n\n"
-                f"🤖 **AI Suggestions:**\n{q_sugg}"
+                f"**Suggestions: Tips to Consider**:\n{q_sugg}"
             )
         
         await update.message.reply_text(
@@ -160,9 +164,13 @@ class InterviewManager:
         
         msg = "Select a **Hypothesis** type or type your own:"
         if h_sugg:
+            # Ensure bulleted list
+            if "\n-" not in h_sugg and "\n*" not in h_sugg and "\n1." not in h_sugg:
+                h_sugg = "\n".join([f"• {line.strip()}" for line in h_sugg.split('\n') if line.strip()])
+
             msg = (
                 "Select a **Hypothesis** type, use a suggestion, or type your own:\n\n"
-                f"🤖 **AI Suggestions:**\n{h_sugg}"
+                f"**Suggestions: Tips to Consider**:\n{h_sugg}"
             )
         
         await update.message.reply_text(

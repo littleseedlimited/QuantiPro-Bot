@@ -148,7 +148,7 @@ class AIInterpreter:
             Topic: {topic}
             
             Return ONLY a JSON object with these keys: "questions", "hypotheses".
-            Format the values as plain text strings with numbered lists.
+            Format the values as plain text strings with numbered lists starting with 1., 2., 3....
             Example: {{"questions": "1. Q1\n2. Q2", "hypotheses": "H1. H1\nH2. H2"}}
             """
 

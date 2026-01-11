@@ -1145,12 +1145,9 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         sig = "*" if isinstance(pval, float) and pval < 0.05 else ""
                         output += f"{var:<15} {coef:<10.4f} {pval:<10.4f}{sig}\n"
                     
-                    output += "```\n* p < 0.05"
+                    output += "```\n\\* p < 0.05"
                     
                     # Log to history for AI Chat
-                    if 'analysis_history' not in context.user_data:
-                        context.user_data['analysis_history'] = []
-                    
                     context.user_data['analysis_history'].append({
                         'test': f"Regression ({reg_type})",
                         'vars': f"{dep_var} ~ {' + '.join(ind_vars)}",
@@ -1158,7 +1155,18 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         'data': result
                     })
                     
-                    await update.message.reply_text(output, parse_mode='Markdown')
+                    # Escape underscores for Telegram Markdown
+                    safe_output = output.replace('_', '\\_')
+                    await update.message.reply_text(safe_output, parse_mode='Markdown')
+                    
+                    # Thinking Ahead: Prompt for AI explanation
+                    await update.message.reply_text(
+                        "🔍 **Suggestions: Tips to Consider**\n"
+                        "• You can ask me to explain this model in detail.\n"
+                        "• Ask: 'Which predictor is most significant?'\n"
+                        "• I can help you check for multicollinearity or outliers.",
+                        parse_mode='Markdown'
+                    )
                     
             except Exception as e:
                 await update.message.reply_text(f"Error: {str(e)[:100]}")
@@ -1373,7 +1381,6 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     
                     # NEW: Professional indigo table image
                     try:
-                        from src.core.visualizer import Visualizer
                         img_path = Visualizer.create_stats_table_image(table, title=f"Frequency Table: {var}")
                         if img_path and os.path.exists(img_path):
                             with open(img_path, 'rb') as f:
@@ -1751,9 +1758,6 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     }
                     
                     # Store result for history and AI
-                    if 'analysis_history' not in context.user_data:
-                        context.user_data['analysis_history'] = []
-                    
                     context.user_data['analysis_history'].append({
                         'test': 'Crosstab',
                         'vars': f"{row_var} x {col_var}",
@@ -1761,7 +1765,9 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         'data': ct_res
                     })
                     
-                    image_path = Visualizer.create_rich_crosstab_image(ct_res, config=config)
+                    # Ensure Visualizer is the global class
+                    from src.core.visualizer import Visualizer as Vis
+                    image_path = Vis.create_rich_crosstab_image(ct_res, config=config)
                     
                     # Log visual to history
                     if image_path:
@@ -1777,6 +1783,13 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         await update.message.reply_photo(
                             photo=open(image_path, 'rb'),
                             caption=f"📊 **Crosstab: {row_var} × {col_var}**"
+                        )
+                        # Thinking Ahead
+                        await update.message.reply_text(
+                            "**Suggestions: Tips to Consider**\n"
+                            "• Ask me to explain the patterns in this table.\n"
+                            "• I can check for statistical significance (Chi-Square).",
+                            parse_mode='Markdown'
                         )
                     else:
                         # Fallback to text if image fails
@@ -2678,6 +2691,13 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 await update.message.reply_photo(photo=open(path, 'rb'), caption=f"🕸️ Radar Chart ({v_config.get('palette')})")
                 if 'visuals_history' not in context.user_data: context.user_data['visuals_history'] = []
                 context.user_data['visuals_history'].append(path)
+                # Thinking Ahead
+                await update.message.reply_text(
+                    "**Suggestions: Tips to Consider**\n"
+                    "• Ask: 'Explain this radar chart'\n"
+                    "• Ask: 'Which variables are strongest?'",
+                    parse_mode='Markdown'
+                )
             else:
                 await update.message.reply_text("❌ Could not generate radar chart (need at least 3 numeric variables).")
         else:
@@ -2692,6 +2712,13 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
             await update.message.reply_photo(photo=open(path, 'rb'), caption="🔥 Correlation Heatmap")
             if 'visuals_history' not in context.user_data: context.user_data['visuals_history'] = []
             context.user_data['visuals_history'].append(path)
+            # Thinking Ahead
+            await update.message.reply_text(
+                "**Suggestions: Tips to Consider**\n"
+                "• Ask: 'Which variables have the strongest relationship?'\n"
+                "• Ask: 'Summarize the correlations'",
+                parse_mode='Markdown'
+            )
         else:
             await update.message.reply_text("❌ Could not generate heatmap.")
         return await show_visual_menu()
@@ -2738,6 +2765,13 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 await update.message.reply_photo(photo=open(path, 'rb'), caption=f"🥧 Pie Chart: {choice}")
                 if 'visuals_history' not in context.user_data: context.user_data['visuals_history'] = []
                 context.user_data['visuals_history'].append(path)
+                # Thinking Ahead
+                await update.message.reply_text(
+                    "**Suggestions: Tips to Consider**\n"
+                    "• Ask: 'What does this pie chart tell me?'\n"
+                    "• Ask: 'Which category is dominant?'",
+                    parse_mode='Markdown'
+                )
             context.user_data['visual_type'] = None
             return await show_visual_menu("✅ Pie chart generated!")
         
@@ -2748,6 +2782,13 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 await update.message.reply_photo(photo=open(path, 'rb'), caption=f"📊 Bar Chart: {choice}")
                 if 'visuals_history' not in context.user_data: context.user_data['visuals_history'] = []
                 context.user_data['visuals_history'].append(path)
+                # Thinking Ahead
+                await update.message.reply_text(
+                    "**Suggestions: Tips to Consider**\n"
+                    "• Ask: 'Interpret this bar chart for me'\n"
+                    "• Ask: 'Are any categories significantly higher?'",
+                    parse_mode='Markdown'
+                )
             context.user_data['visual_type'] = None
             return await show_visual_menu("✅ Bar chart generated!")
         
@@ -2782,6 +2823,13 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 await update.message.reply_photo(photo=open(path, 'rb'), caption=caption)
                 if 'visuals_history' not in context.user_data: context.user_data['visuals_history'] = []
                 context.user_data['visuals_history'].append(path)
+                # Thinking Ahead
+                await update.message.reply_text(
+                    "**Suggestions: Tips to Consider**\n"
+                    "• Ask: 'Explain this visualization'\n"
+                    "• Ask: 'What are the key takeaways from this chart?'",
+                    parse_mode='Markdown'
+                )
             else:
                 await update.message.reply_text("❌ Could not generate chart.")
             
