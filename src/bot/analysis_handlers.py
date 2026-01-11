@@ -191,12 +191,33 @@ async def guide_confirm_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 # Fallback to text if image fails or visuals are disabled
                 await update.message.reply_text(text_summary, parse_mode='Markdown')
             
+            # Store for history
+            if 'analysis_history' not in context.user_data:
+                context.user_data['analysis_history'] = []
+            context.user_data['analysis_history'].append({
+                'test': 'Descriptive Statistics',
+                'vars': 'All selected numeric columns',
+                'result': text_summary,
+                'data': stats.to_dict()
+            })
+
             # Store for export
             context.user_data['last_analysis'] = {
                 'type': 'descriptive_stats',
                 'data': stats,
                 'title': 'Descriptive Statistics'
             }
+            
+            # Log visual
+            if img_path:
+                if 'visuals_history' not in context.user_data:
+                    context.user_data['visuals_history'] = []
+                context.user_data['visuals_history'].append({
+                    'path': img_path,
+                    'title': 'Descriptive Statistics Table',
+                    'type': 'stats_table',
+                    'data': stats.to_dict()
+                })
             
             # AI Interpretation with better formatting
             try:

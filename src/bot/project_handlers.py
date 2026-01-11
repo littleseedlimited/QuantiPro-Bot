@@ -9,6 +9,21 @@ from src.bot.constants import ACTION
 from telegram.error import BadRequest
 import os
 import html
+import pandas as pd
+
+def clean_for_json(obj):
+    """Recursively convert pandas objects to JSON serializable types."""
+    if isinstance(obj, pd.DataFrame):
+        return obj.to_dict(orient='records')
+    elif isinstance(obj, pd.Series):
+        return obj.to_list()
+    elif isinstance(obj, dict):
+        return {k: clean_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [clean_for_json(item) for item in obj]
+    elif hasattr(obj, 'to_dict'): # For custom objects like Reference
+        return obj.to_dict()
+    return obj
 
 
 async def show_projects_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -101,7 +116,11 @@ async def save_current_project(update: Update, context: ContextTypes.DEFAULT_TYP
         'columns': context.user_data.get('columns', []),
         'num_cols': context.user_data.get('num_cols', []),
         'analysis_history': context.user_data.get('analysis_history', []),
+        'visuals_history': context.user_data.get('visuals_history', []),
     }
+    
+    # Clean for JSON
+    context_data = clean_for_json(context_data)
     
     task_id = db.save_task(
         user_id=user_id,

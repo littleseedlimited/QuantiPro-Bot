@@ -515,8 +515,24 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     filename=f"{title}.csv",
                     caption=f"📊 **{title}** (CSV)"
                 )
-                
+            
+            # Also send visual if it exists in history
+            visuals = context.user_data.get('visuals_history', [])
+            if visuals:
+                latest = visuals[-1]
+                if latest.get('path') and os.path.exists(latest['path']):
+                    try:
+                        await update.message.reply_photo(
+                            photo=open(latest['path'], 'rb'),
+                            caption=f"🖼️ Screen Version: {latest.get('title', 'Analysis Table')}"
+                        )
+                    except Exception as ve:
+                        logger.error(f"Visual export failed: {ve}")
+
+            await update.message.reply_text("✅ Export complete!")
+            
         except Exception as e:
+            logger.error(f"Export failed: {e}")
             await update.message.reply_text(f"⚠️ Export failed: {str(e)}")
             
         return ACTION
@@ -1106,8 +1122,9 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await update.message.reply_text(f"Error: {result['error']}")
                 else:
                     # Format results as table
+                    escaped_dep = str(dep_var).replace('_', '\\_')
                     output = f"**Regression Results**\n"
-                    output += f"Dependent: {dep_var}\n"
+                    output += f"Dependent: {escaped_dep}\n"
                     output += f"Type: {reg_type.replace('_', ' ').title()}\n\n"
                     
                     if 'logistic' in reg_type:
@@ -1129,6 +1146,17 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         output += f"{var:<15} {coef:<10.4f} {pval:<10.4f}{sig}\n"
                     
                     output += "```\n* p < 0.05"
+                    
+                    # Log to history for AI Chat
+                    if 'analysis_history' not in context.user_data:
+                        context.user_data['analysis_history'] = []
+                    
+                    context.user_data['analysis_history'].append({
+                        'test': f"Regression ({reg_type})",
+                        'vars': f"{dep_var} ~ {' + '.join(ind_vars)}",
+                        'result': f"R2: {result.get('r_squared', 0):.4f}",
+                        'data': result
+                    })
                     
                     await update.message.reply_text(output, parse_mode='Markdown')
                     
@@ -1342,6 +1370,30 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     output += "```\n"
                     
                     await update.message.reply_text(output, parse_mode='Markdown')
+                    
+                    # NEW: Professional indigo table image
+                    try:
+                        from src.core.visualizer import Visualizer
+                        img_path = Visualizer.create_stats_table_image(table, title=f"Frequency Table: {var}")
+                        if img_path and os.path.exists(img_path):
+                            with open(img_path, 'rb') as f:
+                                await update.message.reply_photo(
+                                    photo=f,
+                                    caption=f"📊 **Professional Frequency Table: {var}**",
+                                    parse_mode='Markdown'
+                                )
+                            
+                            # Log visual to history
+                            if 'visuals_history' not in context.user_data:
+                                context.user_data['visuals_history'] = []
+                            context.user_data['visuals_history'].append({
+                                'path': img_path,
+                                'title': f"Frequency Table: {var}",
+                                'type': 'stats_table',
+                                'data': table.to_dict()
+                            })
+                    except Exception as ve:
+                        logger.error(f"Failed to generate frequency image: {ve}")
 
                     # Store for history
                     if 'analysis_history' not in context.user_data: context.user_data['analysis_history'] = []
@@ -1349,8 +1401,15 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         'test': f'Frequency: {var}',
                         'vars': var,
                         'result': output,
-                        'data': table.to_dict() # For manuscript table
+                        'data': table.to_dict() 
                     })
+                    
+                    # Store as last analysis for export
+                    context.user_data['last_analysis'] = {
+                        'type': 'frequency',
+                        'data': table,
+                        'title': f'Frequency_{var}'
+                    }
                     
                 except Exception as e:
                     await update.message.reply_text(f"⚠️ Error processing {var}: {e}")
@@ -1691,12 +1750,30 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         'col_var': col_lbl
                     }
                     
-                    # Store result for the next loop/export
-                    result = ct_res 
+                    # Store result for history and AI
+                    if 'analysis_history' not in context.user_data:
+                        context.user_data['analysis_history'] = []
+                    
+                    context.user_data['analysis_history'].append({
+                        'test': 'Crosstab',
+                        'vars': f"{row_var} x {col_var}",
+                        'result': f"Table generated for {row_var} vs {col_var}",
+                        'data': ct_res
+                    })
                     
                     image_path = Visualizer.create_rich_crosstab_image(ct_res, config=config)
                     
+                    # Log visual to history
                     if image_path:
+                        if 'visuals_history' not in context.user_data:
+                            context.user_data['visuals_history'] = []
+                        context.user_data['visuals_history'].append({
+                            'path': image_path,
+                            'title': f"Crosstab: {row_lbl} x {col_lbl}",
+                            'type': 'crosstab',
+                            'data': ct_res
+                        })
+                        
                         await update.message.reply_photo(
                             photo=open(image_path, 'rb'),
                             caption=f"📊 **Crosstab: {row_var} × {col_var}**"
