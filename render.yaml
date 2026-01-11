@@ -2,7 +2,7 @@ services:
   - type: web
     name: quantiprobot
     runtime: docker
-    plan: free
+    plan: starter
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
@@ -10,10 +10,14 @@ services:
           name: quantiprodb
           property: connectionString
       - key: DATA_DIR
-        value: /app/data
+        value: /app/data/bot_files
       - key: PYTHONUNBUFFERED
         value: "1"
+    disk:
+      name: bot-files
+      mountPath: /app/data/bot_files
+      sizeGB: 1
 
 databases:
   - name: quantiprodb
-    plan: free
+    plan: starter
