@@ -127,6 +127,51 @@ class AIInterpreter:
             logger.error(f"Chat error: {e}")
             return "I encountered an error trying to process your request."
 
+    async def generate_research_suggestions(self, topic: str) -> Dict[str, Any]:
+        """
+        Generate research questions and hypotheses based on a topic/title.
+        """
+        if not self.api_key:
+            return {
+                "questions": "1. What is the impact of this topic?\n2. How do variables relate?",
+                "hypotheses": "H1: There is a significant effect.\nH2: There is a significant relationship."
+            }
+
+        try:
+            from openai import AsyncOpenAI
+            import json
+            client = AsyncOpenAI(api_key=self.api_key)
+            
+            prompt = f"""
+            You are a senior research consultant. Based on the following research topic/title, suggest 3 research questions and 3 corresponding hypotheses.
+            Topic: {topic}
+            
+            Return ONLY a JSON object with these keys: "questions", "hypotheses".
+            Format the values as plain text strings with numbered lists.
+            Example: {{"questions": "1. Q1\n2. Q2", "hypotheses": "H1. H1\nH2. H2"}}
+            """
+
+            response = await client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=600,
+                temperature=0.7
+            )
+            
+            content = response.choices[0].message.content.strip()
+            if content.startswith("```json"):
+                content = content[7:-3]
+            elif content.startswith("```"):
+                content = content[3:-3]
+                
+            return json.loads(content)
+        except Exception as e:
+            logger.error(f"Error generating suggestions: {e}")
+            return {
+                "questions": "1. What is the impact of this topic?\n2. How do variables relate?",
+                "hypotheses": "H1: There is a significant effect.\nH2: There is a significant relationship."
+            }
+
 
     def _template_fallback(self, analysis_type: str, results: Dict[str, Any]) -> str:
         """Simple templates for when no AI is available."""

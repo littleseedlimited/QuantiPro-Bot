@@ -24,6 +24,18 @@ class FileManager:
         return ext.lower().replace('.', '')
 
     @staticmethod
+    def get_active_dataframe(file_path: str) -> Optional[pd.DataFrame]:
+        """Safe reload of a dataframe from a known path."""
+        if not file_path or not os.path.exists(file_path):
+            return None
+        try:
+            df, _ = FileManager.load_file(file_path)
+            return FileManager.clean_data(df)
+        except Exception as e:
+            logger.error(f"Failed to reload active dataframe: {e}")
+            return None
+
+    @staticmethod
     def load_file(file_path: str, file_format: str = None) -> Tuple[Optional[pd.DataFrame], Dict[str, Any]]:
         """
         Load a file into a pandas DataFrame.

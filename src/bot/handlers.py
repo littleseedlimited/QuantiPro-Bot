@@ -3200,6 +3200,12 @@ async def admin_callback_handler(update: Update, context: ContextTypes.DEFAULT_T
             context.user_data['file_path'] = task['file_path']
             context.user_data['loaded_task_id'] = task_id
             
+            # Reload dataset immediately
+            from src.core.file_manager import FileManager
+            context.user_data['df'] = FileManager.get_active_dataframe(task['file_path'])
+            if context.user_data['df'] is not None:
+                context.user_data['columns'] = list(context.user_data['df'].columns)
+            
             # Restore references if they were saved as dicts
             if 'references' in task['context']:
                 from src.writing.citations import Reference

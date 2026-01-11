@@ -2,6 +2,7 @@ from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import ContextTypes, ConversationHandler, MessageHandler, filters
 from src.core.analyzer import Analyzer
 from src.core.visualizer import Visualizer
+from src.core.file_manager import FileManager
 import pandas as pd
 import os
 
@@ -89,7 +90,6 @@ async def guide_confirm_handler(update: Update, context: ContextTypes.DEFAULT_TY
     if df is None:
         file_path = context.user_data.get('file_path')
         if file_path:
-            from src.core.file_manager import FileManager
             try:
                 df = FileManager.get_active_dataframe(file_path)
                 context.user_data['df'] = df

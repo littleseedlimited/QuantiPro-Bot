@@ -167,10 +167,10 @@ class Visualizer:
         fig, ax = plt.subplots(figsize=(fig_width, fig_height), dpi=100)
         ax.axis('off')
         
-        # Modern colors
-        header_color = '#1a3a5f'  # Deep Navy
-        row_colors = ['#f8f9fa', '#ffffff'] # Alternating light grey/white
-        edge_color = '#e9ecef'
+        # Modern professional colors (Harmonized with rich crosstab)
+        header_bg = '#e8f5e9'    # Very light green for headers
+        text_color = '#1a237e'   # Deep Indigo for text
+        edge_color = '#bccad6'
         
         table = ax.table(
             cellText=display_df.values,
@@ -178,8 +178,8 @@ class Visualizer:
             rowLabels=display_df.index,
             cellLoc='center',
             loc='center',
-            colColours=[header_color] * n_cols,
-            cellColours=[[row_colors[i % 2] for _ in range(n_cols)] for i in range(n_rows)],
+            colColours=[header_bg] * n_cols,
+            rowColours=[header_bg] * n_rows,
             edges='closed'
         )
         
@@ -190,15 +190,15 @@ class Visualizer:
         # Stylize headers
         for j in range(n_cols):
             cell = table[(0, j)]
-            cell.set_text_props(weight='bold', color='white', fontsize=12)
-            cell.set_facecolor(header_color)
+            cell.set_text_props(weight='bold', color=text_color, fontsize=12)
+            cell.set_facecolor(header_bg)
             cell.set_edgecolor(edge_color)
             
         # Stylize row labels (index)
         for i in range(n_rows):
             cell = table[(i+1, -1)]
-            cell.set_text_props(weight='bold', color='#333333')
-            cell.set_facecolor('#eef2f7')
+            cell.set_text_props(weight='bold', color=text_color)
+            cell.set_facecolor(header_bg)
             cell.set_edgecolor(edge_color)
             cell.set_width(0.15) # Ensure index doesn't wrap too aggressively
 
@@ -209,7 +209,8 @@ class Visualizer:
                 cell.set_edgecolor(edge_color)
                 cell.set_text_props(color='#444444')
 
-        plt.title(title, fontsize=20, fontweight='bold', color='#1a3a5f', pad=30)
+        plt.title(title, fontsize=20, fontweight='bold', color='white', pad=40,
+                 backgroundcolor='#3f51b5') # Indigo title bar
         
         # Clean up global state
         path = Visualizer._save_plot('stats_table.png')
@@ -289,6 +290,11 @@ class Visualizer:
         """
         plt, _ = Visualizer._get_plt_sns()
         if not plt: return None
+        
+        config = config or {}
+        row_var = ct_result.get('row_var', 'Row')
+        col_var = ct_result.get('col_var', 'Col')
+        title = config.get('title', f"Cross Tabulation: {row_var} vs {col_var}")
         
         counts = ct_result.get('full_counts')
         if counts is None: counts = ct_result.get('counts')

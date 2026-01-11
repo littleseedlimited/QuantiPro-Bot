@@ -87,7 +87,19 @@ class InterviewManager:
             return ACTION
             
         context.user_data['research_title'] = update.message.text
-        await update.message.reply_text("Great. What are your **Primary Objectives**?")
+        
+        await update.message.reply_text("⚙️ Analyzing topic and generating suggestions...")
+        
+        ai = AIInterpreter()
+        suggestions = await ai.generate_research_suggestions(update.message.text)
+        context.user_data['ai_suggestions'] = suggestions
+        
+        await update.message.reply_text(
+            f"✅ Title: **{update.message.text}**\n\n"
+            "I've prepared some research suggestions based on your topic. We'll see them in the next steps.\n\n"
+            "Now, what are your **Primary Objectives**?",
+             parse_mode='Markdown'
+        )
         return RESEARCH_OBJECTIVES
 
     @staticmethod
@@ -99,45 +111,56 @@ class InterviewManager:
             
         context.user_data['research_objectives'] = update.message.text
         
-        # Show list of common research questions
+        suggestions = context.user_data.get('ai_suggestions', {})
+        q_sugg = suggestions.get('questions', '')
+        
+        msg = "Select a **Research Question** type or type your own:"
+        if q_sugg:
+            msg = (
+                "Select a **Research Question** type, use a suggestion, or type your own:\n\n"
+                f"🤖 **AI Suggestions:**\n{q_sugg}"
+            )
+        
         await update.message.reply_text(
-            "Select a **Research Question** type or type your own:",
+            msg,
             parse_mode='Markdown',
             reply_markup=ReplyKeyboardMarkup([
                 ['Is there a significant difference between groups?'],
                 ['Is there a relationship between variables?'],
                 ['Can we predict an outcome from predictors?'],
                 ['What are the characteristics of the sample?'],
-                ['Type my own question']
+                ['📝 Use AI Suggestions', 'Type my own question']
             ], one_time_keyboard=True)
         )
         return RESEARCH_QUESTIONS
 
-    @staticmethod
-    async def handle_questions(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        choice = update.message.text
-        
-        if choice == '🏠 Main Menu':
-            from src.bot.handlers import show_action_menu, ACTION
-            await show_action_menu(update, "Returned to main menu.")
-            return ACTION
-            
-        if choice == 'Type my own question':
-            await update.message.reply_text("Please type your **Research Question**:")
-            return RESEARCH_QUESTIONS
-        
-        context.user_data['research_questions'] = choice
+        if choice == '📝 Use AI Suggestions':
+            suggestions = context.user_data.get('ai_suggestions', {})
+            context.user_data['research_questions'] = suggestions.get('questions', 'No suggestion')
+            await update.message.reply_text(f"✅ Questions set to AI suggestions:\n\n{context.user_data['research_questions']}")
+        else:
+            context.user_data['research_questions'] = choice
         
         # Show list of common hypotheses
+        suggestions = context.user_data.get('ai_suggestions', {})
+        h_sugg = suggestions.get('hypotheses', '')
+        
+        msg = "Select a **Hypothesis** type or type your own:"
+        if h_sugg:
+            msg = (
+                "Select a **Hypothesis** type, use a suggestion, or type your own:\n\n"
+                f"🤖 **AI Suggestions:**\n{h_sugg}"
+            )
+        
         await update.message.reply_text(
-            "Select a **Hypothesis** type or type your own:",
+            msg,
             parse_mode='Markdown',
             reply_markup=ReplyKeyboardMarkup([
                 ['There is a significant difference between groups'],
                 ['There is a significant relationship between X and Y'],
                 ['X significantly predicts Y'],
                 ['No hypothesis (exploratory study)'],
-                ['Type my own hypothesis']
+                ['🎓 Use AI Suggested Hypotheses', 'Type my own hypothesis']
             ], one_time_keyboard=True)
         )
         return RESEARCH_HYPOTHESIS
@@ -151,12 +174,12 @@ class InterviewManager:
             await show_action_menu(update, "Returned to main menu.")
             return ACTION
             
-        if choice == 'Type my own hypothesis':
-            await update.message.reply_text("Please type your **Hypothesis**:")
-            return RESEARCH_HYPOTHESIS
-        
-        # Save selection
-        context.user_data['research_hypothesis'] = choice
+        if choice == '🎓 Use AI Suggested Hypotheses':
+            suggestions = context.user_data.get('ai_suggestions', {})
+            context.user_data['research_hypothesis'] = suggestions.get('hypotheses', 'No suggestion')
+            await update.message.reply_text(f"✅ Hypotheses set to AI suggestions:\n\n{context.user_data['research_hypothesis']}")
+        else:
+            context.user_data['research_hypothesis'] = choice
         
         next_step = context.user_data.get('next_step')
         
