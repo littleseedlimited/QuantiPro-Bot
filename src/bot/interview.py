@@ -134,6 +134,19 @@ class InterviewManager:
         )
         return RESEARCH_QUESTIONS
 
+    @staticmethod
+    async def handle_questions(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        choice = update.message.text
+        
+        if choice == '🏠 Main Menu':
+            from src.bot.handlers import show_action_menu, ACTION
+            await show_action_menu(update, "Returned to main menu.")
+            return ACTION
+            
+        if choice == 'Type my own question':
+            await update.message.reply_text("Please type your **Research Question**:")
+            return RESEARCH_QUESTIONS
+
         if choice == '📝 Use AI Suggestions':
             suggestions = context.user_data.get('ai_suggestions', {})
             context.user_data['research_questions'] = suggestions.get('questions', 'No suggestion')
@@ -178,6 +191,9 @@ class InterviewManager:
             suggestions = context.user_data.get('ai_suggestions', {})
             context.user_data['research_hypothesis'] = suggestions.get('hypotheses', 'No suggestion')
             await update.message.reply_text(f"✅ Hypotheses set to AI suggestions:\n\n{context.user_data['research_hypothesis']}")
+        elif choice == 'Type my own hypothesis':
+            await update.message.reply_text("Please type your **Hypothesis**:")
+            return RESEARCH_HYPOTHESIS
         else:
             context.user_data['research_hypothesis'] = choice
         
