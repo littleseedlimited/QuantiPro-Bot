@@ -401,3 +401,35 @@ These findings have important implications for the field and provide direction f
 Further investigation with larger sample sizes and additional variables would strengthen these conclusions. Researchers are encouraged to replicate these findings in different contexts and populations.
 
 The results contribute to the existing body of literature and offer practical recommendations for practitioners in the field."""
+
+    async def generate_quick_interpretation(self, chart_type: str, data: dict) -> str:
+        """
+        Generate a very brief (1-2 sentence) interpretation of a chart immediately after generation.
+        """
+        if not self.api_key:
+            return "Chart generated. Ask me to interpret it for you!"
+
+        try:
+            from openai import AsyncOpenAI
+            client = AsyncOpenAI(api_key=self.api_key)
+            
+            prompt = (
+                f"A researcher just generated a {chart_type}. "
+                f"Here are the summary statistics/data: {str(data)[:1000]}\n"
+                "Provide a 1-sentence quick takeaway and 2 highly specific follow-up questions they could ask me.\n"
+                "Format: [Takeaway]\n\n[Question 1]\n[Question 2]\n"
+                "Keep it technical but simple. No markdown formatting."
+            )
+
+            response = await client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=150,
+                temperature=0.7
+            )
+            
+            content = response.choices[0].message.content.strip()
+            return self._clean_formatting(content)
+        except Exception as e:
+            logger.error(f"Error in quick interpretation: {e}")
+            return "Chart generated. Tap below or ask me to explain the patterns!"

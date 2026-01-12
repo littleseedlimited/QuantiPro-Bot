@@ -2745,8 +2745,13 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
                     "• Ask: 'Which variables are strongest?'",
                     parse_mode='Markdown'
                 )
+                # AI Quick Feedback
+                from src.core.ai_interpreter import AIInterpreter
+                interpreter = AIInterpreter()
+                quick_int = await interpreter.generate_quick_interpretation("Radar Chart", {"means": stats})
+                await update.message.reply_text(f"💡 **AI Insights:**\n\n{quick_int}", parse_mode='Markdown')
             else:
-                await update.message.reply_text("❌ Could not generate radar chart (need at least 3 numeric variables).")
+                await update.message.reply_text("❌ Could not generate radar chart.")
         else:
             await update.message.reply_text("❌ Need at least 3 numeric variables for radar chart.")
         return await show_visual_menu()
@@ -2773,6 +2778,11 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 "• Ask: 'Summarize the correlations'",
                 parse_mode='Markdown'
             )
+            # AI Quick Feedback
+            from src.core.ai_interpreter import AIInterpreter
+            interpreter = AIInterpreter()
+            quick_int = await interpreter.generate_quick_interpretation("Correlation Heatmap", corr_matrix)
+            await update.message.reply_text(f"💡 **AI Insights:**\n\n{quick_int}", parse_mode='Markdown')
         else:
             await update.message.reply_text("❌ Could not generate heatmap.")
         return await show_visual_menu()
@@ -2824,6 +2834,12 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
                     'type': 'histogram',
                     'data': stats
                 })
+                # AI Quick Feedback
+                from src.core.ai_interpreter import AIInterpreter
+                interpreter = AIInterpreter()
+                quick_int = await interpreter.generate_quick_interpretation(f"Histogram of {choice}", stats)
+                await update.message.reply_text(f"💡 **AI Insights:**\n\n{quick_int}", parse_mode='Markdown')
+
             context.user_data['visual_type'] = None
             return await show_visual_menu("✅ Histogram generated!")
         
@@ -2848,6 +2864,12 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
                     "• Ask: 'Which category is dominant?'",
                     parse_mode='Markdown'
                 )
+                # AI Quick Feedback
+                from src.core.ai_interpreter import AIInterpreter
+                interpreter = AIInterpreter()
+                quick_int = await interpreter.generate_quick_interpretation(f"Pie Chart of {choice}", counts)
+                await update.message.reply_text(f"💡 **AI Insights:**\n\n{quick_int}", parse_mode='Markdown')
+
             context.user_data['visual_type'] = None
             return await show_visual_menu("✅ Pie chart generated!")
         
@@ -2872,6 +2894,12 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
                     "• Ask: 'Are any categories significantly higher?'",
                     parse_mode='Markdown'
                 )
+                # AI Quick Feedback
+                from src.core.ai_interpreter import AIInterpreter
+                interpreter = AIInterpreter()
+                quick_int = await interpreter.generate_quick_interpretation(f"Bar Chart of {choice}", counts)
+                await update.message.reply_text(f"💡 **AI Insights:**\n\n{quick_int}", parse_mode='Markdown')
+
             context.user_data['visual_type'] = None
             return await show_visual_menu("✅ Bar chart generated!")
         
@@ -2927,13 +2955,26 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
                     "• Ask: 'What are the key takeaways from this chart?'",
                     parse_mode='Markdown'
                 )
+                # AI Quick Feedback
+                from src.core.ai_interpreter import AIInterpreter
+                interpreter = AIInterpreter()
+                quick_int = await interpreter.generate_quick_interpretation(caption, stats)
+                await update.message.reply_text(f"💡 **AI Insights:**\n\n{quick_int}", parse_mode='Markdown')
             else:
                 await update.message.reply_text("❌ Could not generate chart.")
-            
+
             context.user_data['visual_type'] = None
             context.user_data['visual_step'] = None
             return await show_visual_menu("✅ Chart generated!")
     
+    # Default: if it's text and not a button, treat as AI chat
+    if update.message.text and not update.message.text.startswith('/'):
+        # Check if it's potentially a question or just unrecognized text
+        # If it's not a column name and doesn't look like a menu option
+        if df is not None and choice not in df.columns:
+            await ai_chat_handler(update, context)
+            return VISUAL_SELECT
+
     # Default: show visual menu
     return await show_visual_menu()
 
