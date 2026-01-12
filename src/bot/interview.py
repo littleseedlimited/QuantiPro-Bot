@@ -125,7 +125,7 @@ class InterviewManager:
             
             msg = (
                 "Select a **Research Question** type, use a suggestion, or type your own:\n\n"
-                f"**💡 AI Suggested Questions**:\n{q_formatted}"
+                f"**💡 Tips to consider**:\n{q_formatted}"
             )
         
         await update.message.reply_text(
@@ -179,7 +179,7 @@ class InterviewManager:
 
             msg = (
                 "Select a **Hypothesis** type, use a suggestion, or type your own:\n\n"
-                f"**🎓 AI Suggested Hypotheses**:\n{h_formatted}"
+                f"**🎓 Tips to consider**:\n{h_formatted}"
             )
         
         await update.message.reply_text(

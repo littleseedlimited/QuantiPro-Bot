@@ -2740,7 +2740,7 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 })
                 # Thinking Ahead
                 await update.message.reply_text(
-                    "**💡 Suggested Next Steps**:\n\n"
+                    "**💡 Tips to consider**:\n\n"
                     "• Explain this radar chart\n"
                     "• Which variables are strongest?\n"
                     "• Compare these patterns across groups",
@@ -2861,7 +2861,7 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 })
                 # Thinking Ahead
                 await update.message.reply_text(
-                    "**💡 Suggested Next Steps**:\n\n"
+                    "**💡 Tips to consider**:\n\n"
                     "• Which category is dominant?\n"
                     "• Is the distribution as expected?\n"
                     "• What are the key takeaways?",
@@ -2892,7 +2892,7 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 })
                 # Thinking Ahead
                 await update.message.reply_text(
-                    "**💡 Suggested Next Steps**:\n\n"
+                    "**💡 Tips to consider**:\n\n"
                     "• Are any categories significantly higher?\n"
                     "• Compare the top two groups\n"
                     "• What does this tell us about the sample?",
