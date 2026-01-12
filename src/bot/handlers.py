@@ -2691,11 +2691,12 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 await update.message.reply_photo(photo=open(path, 'rb'), caption=f"🕸️ Radar Chart ({v_config.get('palette')})")
                 if 'visuals_history' not in context.user_data: context.user_data['visuals_history'] = []
                 # Add metadata for AI
+                stats = df[num_cols[:8]].mean().round(2).to_dict() if df is not None else {}
                 context.user_data['visuals_history'].append({
                     'path': path,
                     'title': f"Radar Chart of {', '.join(num_cols[:8])}",
                     'type': 'radar_chart',
-                    'data': f"Comparison of {len(num_cols[:8])} numeric variables."
+                    'data': {"means": stats}
                 })
                 # Thinking Ahead
                 await update.message.reply_text(
@@ -2718,11 +2719,12 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
             await update.message.reply_photo(photo=open(path, 'rb'), caption="🔥 Correlation Heatmap")
             if 'visuals_history' not in context.user_data: context.user_data['visuals_history'] = []
             # Add metadata for AI
+            corr_matrix = df.corr().round(2).to_dict() if df is not None else {}
             context.user_data['visuals_history'].append({
                 'path': path,
                 'title': "Correlation Heatmap",
                 'type': 'heatmap',
-                'data': "Correlation matrix of numeric variables."
+                'data': corr_matrix
             })
             # Thinking Ahead
             await update.message.reply_text(
@@ -2748,11 +2750,13 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 await update.message.reply_photo(photo=open(path, 'rb'), caption="🔗 Pair Plot (Scatter Matrix)")
                 if 'visuals_history' not in context.user_data: context.user_data['visuals_history'] = []
                 # Add metadata for AI
+                subset = num_cols[:5]
+                stats = df[subset].corr().round(2).to_dict() if df is not None else {}
                 context.user_data['visuals_history'].append({
                     'path': path,
                     'title': "Pair Plot (Scatter Matrix)",
                     'type': 'pair_plot',
-                    'data': f"Pairwise relationships of: {', '.join(num_cols[:5])}"
+                    'data': stats
                 })
             else:
                 await update.message.reply_text("❌ Could not generate pair plot.")
@@ -2863,12 +2867,18 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 if 'visuals_history' not in context.user_data: context.user_data['visuals_history'] = []
                 
                 # Add metadata for AI context
+                stats = {}
+                if vtype == 'scatter_plot':
+                    stats = {"correlation": float(df[[var1, choice]].corr().iloc[0,1])}
+                elif vtype in ['box_plot', 'violin_plot']:
+                    stats = df.groupby(var1)[choice].describe().to_dict()
+                
                 context.user_data['visuals_history'].append({
                     'path': path,
                     'title': caption,
                     'type': vtype,
                     'vars': [var1, choice],
-                    'data': f"Relationship between {var1} and {choice}"
+                    'data': stats
                 })
                 # Thinking Ahead
                 await update.message.reply_text(

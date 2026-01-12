@@ -100,18 +100,20 @@ class AIInterpreter:
                         continue
                         
                     # item keys: path, title, type, data
-                    chart_info = f"{i}. {item.get('title', 'Chart')} ({item.get('type', 'unknown')})"
+                    chart_info = f"{i}. {item.get('title', 'Chart')} ({item.get('type', 'unknown')})\n"
                     if item.get('data'):
                          # Include descriptive stats captured for the chart
-                         context_text += f"\n   Underlying Data/Stats: {str(item.get('data'))[:600]}"
-                    context_text += chart_info + "\n"
+                         chart_info += f"   Underlying Data/Stats: {str(item.get('data'))[:600]}\n"
+                    context_text += chart_info
 
             system_prompt = (
                 "You are an expert statistical consultant assisting a researcher. "
                 "You have access to the context of their recent analysis below.\n"
                 "When asked to 'explain this' or interpret a result, refer specifically to the data provided in the context.\n"
                 "IMPORTANT: If the user asks to 'discuss the results' or similar, look for the MOST RECENT entry in the 'RECENT ANALYSIS RESULTS' section and provide a detailed scientific interpretation of those specific findings.\n"
-                "If the user asks about a histogram, look for the 'Underlying Data/Stats' to describe the distribution (mean, deviation, min/max).\n"
+                "If the user asks about a histogram, look for the 'Underlying Data/Stats' to describe the distribution (mean, standard deviation, skewness based on mean/median comparison).\n"
+                "If the user asks about a radar chart, look for the 'means' in the stats to see which variables have high or low values relative to others.\n"
+                "If the user asks about a scatter plot, use the 'correlation' value to describe the strength and direction of the relationship.\n"
                 "Use professional but accessible language. "
                 "Do NOT use markdown bold/italic (**text**) in your final output, use plain text only."
                 f"{context_text}"
