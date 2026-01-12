@@ -146,8 +146,8 @@ class AIInterpreter:
         """
         if not self.api_key:
             return {
-                "questions": "1. What is the impact of this topic?\n2. How do variables relate?",
-                "hypotheses": "H1: There is a significant effect.\nH2: There is a significant relationship."
+                "questions": ["What is the impact of this topic?", "How do variables relate?"],
+                "hypotheses": ["There is a significant effect.", "There is a significant relationship."]
             }
 
         try:
@@ -160,8 +160,8 @@ class AIInterpreter:
             Topic: {topic}
             
             Return ONLY a JSON object with these keys: "questions", "hypotheses".
-            Format the values as plain text strings with numbered lists starting with 1., 2., 3....
-            Example: {{"questions": "1. Q1\n2. Q2", "hypotheses": "H1. H1\nH2. H2"}}
+            Format each as a LIST of strings.
+            Example: {{"questions": ["Q1", "Q2"], "hypotheses": ["H1", "H2"]}}
             """
 
             response = await client.chat.completions.create(
@@ -177,12 +177,19 @@ class AIInterpreter:
             elif content.startswith("```"):
                 content = content[3:-3]
                 
-            return json.loads(content)
+            data = json.loads(content)
+            # Ensure they are lists
+            if isinstance(data.get('questions'), str):
+                data['questions'] = [line.strip() for line in data['questions'].split('\n') if line.strip()]
+            if isinstance(data.get('hypotheses'), str):
+                data['hypotheses'] = [line.strip() for line in data['hypotheses'].split('\n') if line.strip()]
+                
+            return data
         except Exception as e:
             logger.error(f"Error generating suggestions: {e}")
             return {
-                "questions": "1. What is the impact of this topic?\n2. How do variables relate?",
-                "hypotheses": "H1: There is a significant effect.\nH2: There is a significant relationship."
+                "questions": ["What is the impact of this topic?", "How do variables relate?"],
+                "hypotheses": ["There is a significant effect.", "There is a significant relationship."]
             }
 
 

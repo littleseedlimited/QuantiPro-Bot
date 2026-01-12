@@ -112,17 +112,20 @@ class InterviewManager:
         context.user_data['research_objectives'] = update.message.text
         
         suggestions = context.user_data.get('ai_suggestions', {})
-        q_sugg = suggestions.get('questions', '')
+        q_sugg_list = suggestions.get('questions', [])
         
         msg = "Select a **Research Question** type or type your own:"
-        if q_sugg:
-            # Ensure bulleted list if it's not already
-            if "\n-" not in q_sugg and "\n*" not in q_sugg and "\n1." not in q_sugg:
-                q_sugg = "\n".join([f"• {line.strip()}" for line in q_sugg.split('\n') if line.strip()])
+        if q_sugg_list:
+            if isinstance(q_sugg_list, list):
+                # Clean formatting for each line
+                q_formatted = "\n\n".join([f"• {q.strip()}" for q in q_sugg_list if q.strip()])
+            else:
+                # Fallback for string
+                q_formatted = "\n\n".join([f"• {line.strip()}" for line in str(q_sugg_list).split('\n') if line.strip()])
             
             msg = (
                 "Select a **Research Question** type, use a suggestion, or type your own:\n\n"
-                f"**Suggestions: Tips to Consider**:\n{q_sugg}"
+                f"**💡 AI Suggested Questions**:\n{q_formatted}"
             )
         
         await update.message.reply_text(
@@ -153,24 +156,30 @@ class InterviewManager:
 
         if choice == '📝 Use AI Suggestions':
             suggestions = context.user_data.get('ai_suggestions', {})
-            context.user_data['research_questions'] = suggestions.get('questions', 'No suggestion')
+            q_list = suggestions.get('questions', [])
+            if isinstance(q_list, list):
+                context.user_data['research_questions'] = "\n".join([f"{i+1}. {q}" for i, q in enumerate(q_list)])
+            else:
+                context.user_data['research_questions'] = str(q_list)
+                
             await update.message.reply_text(f"✅ Questions set to AI suggestions:\n\n{context.user_data['research_questions']}")
         else:
             context.user_data['research_questions'] = choice
         
         # Show list of common hypotheses
         suggestions = context.user_data.get('ai_suggestions', {})
-        h_sugg = suggestions.get('hypotheses', '')
+        h_sugg_list = suggestions.get('hypotheses', [])
         
         msg = "Select a **Hypothesis** type or type your own:"
-        if h_sugg:
-            # Ensure bulleted list
-            if "\n-" not in h_sugg and "\n*" not in h_sugg and "\n1." not in h_sugg:
-                h_sugg = "\n".join([f"• {line.strip()}" for line in h_sugg.split('\n') if line.strip()])
+        if h_sugg_list:
+            if isinstance(h_sugg_list, list):
+                h_formatted = "\n\n".join([f"• {h.strip()}" for h in h_sugg_list if h.strip()])
+            else:
+                h_formatted = "\n\n".join([f"• {line.strip()}" for line in str(h_sugg_list).split('\n') if line.strip()])
 
             msg = (
                 "Select a **Hypothesis** type, use a suggestion, or type your own:\n\n"
-                f"**Suggestions: Tips to Consider**:\n{h_sugg}"
+                f"**🎓 AI Suggested Hypotheses**:\n{h_formatted}"
             )
         
         await update.message.reply_text(
@@ -197,7 +206,11 @@ class InterviewManager:
             
         if choice == '🎓 Use AI Suggested Hypotheses':
             suggestions = context.user_data.get('ai_suggestions', {})
-            context.user_data['research_hypothesis'] = suggestions.get('hypotheses', 'No suggestion')
+            h_list = suggestions.get('hypotheses', [])
+            if isinstance(h_list, list):
+                context.user_data['research_hypothesis'] = "\n".join([f"H{i+1}: {h}" for i, h in enumerate(h_list)])
+            else:
+                context.user_data['research_hypothesis'] = str(h_list)
             await update.message.reply_text(f"✅ Hypotheses set to AI suggestions:\n\n{context.user_data['research_hypothesis']}")
         elif choice == 'Type my own hypothesis':
             await update.message.reply_text("Please type your **Hypothesis**:")

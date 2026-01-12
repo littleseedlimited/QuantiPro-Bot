@@ -2740,9 +2740,10 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 })
                 # Thinking Ahead
                 await update.message.reply_text(
-                    "**Suggestions: Tips to Consider**\n"
-                    "• Ask: 'Explain this radar chart'\n"
-                    "• Ask: 'Which variables are strongest?'",
+                    "**💡 Suggested Next Steps**:\n\n"
+                    "• Explain this radar chart\n"
+                    "• Which variables are strongest?\n"
+                    "• Compare these patterns across groups",
                     parse_mode='Markdown'
                 )
                 # AI Quick Feedback
@@ -2773,9 +2774,10 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
             })
             # Thinking Ahead
             await update.message.reply_text(
-                "**Suggestions: Tips to Consider**\n"
-                "• Ask: 'Which variables have the strongest relationship?'\n"
-                "• Ask: 'Summarize the correlations'",
+                "**💡 Suggested Next Steps**:\n\n"
+                "• Which variables have the strongest relationship?\n"
+                "• Summarize the correlations\n"
+                "• Are there any surprising weak links?",
                 parse_mode='Markdown'
             )
             # AI Quick Feedback
@@ -2859,9 +2861,10 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 })
                 # Thinking Ahead
                 await update.message.reply_text(
-                    "**Suggestions: Tips to Consider**\n"
-                    "• Ask: 'What does this pie chart tell me?'\n"
-                    "• Ask: 'Which category is dominant?'",
+                    "**💡 Suggested Next Steps**:\n\n"
+                    "• Which category is dominant?\n"
+                    "• Is the distribution as expected?\n"
+                    "• What are the key takeaways?",
                     parse_mode='Markdown'
                 )
                 # AI Quick Feedback
@@ -2889,9 +2892,10 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 })
                 # Thinking Ahead
                 await update.message.reply_text(
-                    "**Suggestions: Tips to Consider**\n"
-                    "• Ask: 'Interpret this bar chart for me'\n"
-                    "• Ask: 'Are any categories significantly higher?'",
+                    "**💡 Suggested Next Steps**:\n\n"
+                    "• Are any categories significantly higher?\n"
+                    "• Compare the top two groups\n"
+                    "• What does this tell us about the sample?",
                     parse_mode='Markdown'
                 )
                 # AI Quick Feedback
@@ -2950,9 +2954,10 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 })
                 # Thinking Ahead
                 await update.message.reply_text(
-                    "**Suggestions: Tips to Consider**\n"
-                    "• Ask: 'Explain this visualization'\n"
-                    "• Ask: 'What are the key takeaways from this chart?'",
+                    "**💡 Suggested Next Steps**:\n\n"
+                    "• Explain this visualization\n"
+                    "• What are the key takeaways from this chart?\n"
+                    "• How does this support the hypothesis?",
                     parse_mode='Markdown'
                 )
                 # AI Quick Feedback
