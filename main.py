@@ -123,8 +123,13 @@ def main():
     # Persistence
     print("DEBUG: Loading Persistence...")
     try:
-        persistence = PicklePersistence(filepath='bot_data.pickle')
-        print("DEBUG: Persistence Loaded.")
+        # Load DATA_DIR from env or default to data
+        data_dir = os.getenv("DATA_DIR", "data")
+        os.makedirs(data_dir, exist_ok=True)
+        persistence_file = os.path.join(data_dir, 'bot_data.pickle')
+        
+        persistence = PicklePersistence(filepath=persistence_file)
+        print(f"DEBUG: Persistence Loaded from {persistence_file}.")
     except Exception as e:
         print(f"DEBUG: Persistence Error: {e}")
         persistence = None

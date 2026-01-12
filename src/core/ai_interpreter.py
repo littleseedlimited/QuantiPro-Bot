@@ -84,11 +84,16 @@ class AIInterpreter:
             # 1. Build Context String
             context_text = ""
             
-            # Recent Analysis (last 3)
+            # Recent Analysis (last 5 for better conversational context)
             if analysis_history:
                 context_text += "\n\nRECENT ANALYSIS RESULTS:\n"
-                for i, item in enumerate(analysis_history[-3:], 1):
-                    context_text += f"{i}. {item.get('test')} on {item.get('vars')}: {str(item.get('data'))[:500]}\n"
+                for i, item in enumerate(analysis_history[-5:], 1):
+                    test = item.get('test', 'Analysis')
+                    vars = item.get('vars', 'N/A')
+                    # Include both raw data and the plain language summary
+                    data_str = str(item.get('data'))[:400]
+                    narrative = item.get('result', 'No interpretation recorded.')
+                    context_text += f"{i}. {test} on {vars}:\n   Result: {narrative}\n   Raw Data: {data_str}\n"
             
             # Recent Visuals (last 3)
             if visuals_history:

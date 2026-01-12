@@ -1757,11 +1757,17 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         'col_var': col_lbl
                     }
                     
+                    # Generate narrative with Chi-Square
+                    narrative = f"Crosstabulation analysis was performed to examine the relationship between {row_lbl} and {col_lbl}."
+                    if 'chi2' in ct_res:
+                        sig = "significant" if ct_res['p_val'] < 0.05 else "not significant"
+                        narrative += f"\nA Chi-Square test of independence showed a {sig} relationship (χ²={ct_res['chi2']:.2f}, p={ct_res['p_val']:.4f})."
+                    
                     # Store result for history and AI
                     context.user_data['analysis_history'].append({
                         'test': 'Crosstab',
                         'vars': f"{row_var} x {col_var}",
-                        'result': f"Table generated for {row_var} vs {col_var}",
+                        'result': narrative,
                         'data': ct_res
                     })
                     
@@ -1780,9 +1786,15 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             'data': ct_res
                         })
                         
+                        caption = f"📊 **Crosstab: {row_var} × {col_var}**"
+                        if 'chi2' in ct_res:
+                            sig = "✅ Significant" if ct_res['p_val'] < 0.05 else "❌ Not Significant"
+                            caption += f"\n\n**Chi-Square:** {ct_res['chi2']:.2f}\n**p-value:** {ct_res['p_val']:.4f}\n**Result:** {sig}"
+                        
                         await update.message.reply_photo(
                             photo=open(image_path, 'rb'),
-                            caption=f"📊 **Crosstab: {row_var} × {col_var}**"
+                            caption=caption,
+                            parse_mode='Markdown'
                         )
                         # Thinking Ahead
                         await update.message.reply_text(
@@ -2746,8 +2758,8 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
         if path:
             await update.message.reply_photo(photo=open(path, 'rb'), caption="🔥 Correlation Heatmap")
             if 'visuals_history' not in context.user_data: context.user_data['visuals_history'] = []
-            # Add metadata for AI
-            corr_matrix = df.corr().round(2).to_dict() if df is not None else {}
+            # Add metadata for AI (Filter numeric only to avoid conversion errors)
+            corr_matrix = df.select_dtypes(include=['number']).corr().round(2).to_dict() if df is not None else {}
             context.user_data['visuals_history'].append({
                 'path': path,
                 'title': "Correlation Heatmap",

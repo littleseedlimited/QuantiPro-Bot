@@ -397,6 +397,13 @@ class Analyzer:
                 "n_observations": len(df)
             }
             
+            # Add Chi-Square results automatically
+            chi2_res = Analyzer.run_chi2(df, row_var, col_var)
+            if "error" not in chi2_res:
+                result["chi2"] = chi2_res["chi2"]
+                result["p_val"] = chi2_res["p_val"]
+                result["dof"] = chi2_res["dof"]
+            
             # Row percentages
             if show_row_pct:
                 row_pct = pd.crosstab(df[row_var], df[col_var], normalize='index', 
@@ -534,4 +541,16 @@ class Analyzer:
                 
                 display_df.loc[row, col] = text
         
+        # Add Chi-Square results as index entry if present
+        if 'chi2' in ct_result:
+            chi2 = ct_result['chi2']
+            p = ct_result['p_val']
+            dof = ct_result['dof']
+            sig = "Statistically Significant" if p < 0.05 else "Not Significant"
+            stats_footer = f"Chi-Square: {chi2:.2f}, df={dof}, p={p:.4f} ({sig})"
+            
+            # Add a spacer row and the stats row
+            display_df.loc['---', :] = '---'
+            display_df.loc['Chi-Square Test', display_df.columns[0]] = stats_footer
+            
         return display_df
