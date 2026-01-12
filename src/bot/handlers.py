@@ -2690,7 +2690,13 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
             if path:
                 await update.message.reply_photo(photo=open(path, 'rb'), caption=f"🕸️ Radar Chart ({v_config.get('palette')})")
                 if 'visuals_history' not in context.user_data: context.user_data['visuals_history'] = []
-                context.user_data['visuals_history'].append(path)
+                # Add metadata for AI
+                context.user_data['visuals_history'].append({
+                    'path': path,
+                    'title': f"Radar Chart of {', '.join(num_cols[:8])}",
+                    'type': 'radar_chart',
+                    'data': f"Comparison of {len(num_cols[:8])} numeric variables."
+                })
                 # Thinking Ahead
                 await update.message.reply_text(
                     "**Suggestions: Tips to Consider**\n"
@@ -2711,7 +2717,13 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
         if path:
             await update.message.reply_photo(photo=open(path, 'rb'), caption="🔥 Correlation Heatmap")
             if 'visuals_history' not in context.user_data: context.user_data['visuals_history'] = []
-            context.user_data['visuals_history'].append(path)
+            # Add metadata for AI
+            context.user_data['visuals_history'].append({
+                'path': path,
+                'title': "Correlation Heatmap",
+                'type': 'heatmap',
+                'data': "Correlation matrix of numeric variables."
+            })
             # Thinking Ahead
             await update.message.reply_text(
                 "**Suggestions: Tips to Consider**\n"
@@ -2735,7 +2747,13 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
             if path:
                 await update.message.reply_photo(photo=open(path, 'rb'), caption="🔗 Pair Plot (Scatter Matrix)")
                 if 'visuals_history' not in context.user_data: context.user_data['visuals_history'] = []
-                context.user_data['visuals_history'].append(path)
+                # Add metadata for AI
+                context.user_data['visuals_history'].append({
+                    'path': path,
+                    'title': "Pair Plot (Scatter Matrix)",
+                    'type': 'pair_plot',
+                    'data': f"Pairwise relationships of: {', '.join(num_cols[:5])}"
+                })
             else:
                 await update.message.reply_text("❌ Could not generate pair plot.")
         else:
@@ -2754,7 +2772,14 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
             if path:
                 await update.message.reply_photo(photo=open(path, 'rb'), caption=f"📉 Histogram: {choice}")
                 if 'visuals_history' not in context.user_data: context.user_data['visuals_history'] = []
-                context.user_data['visuals_history'].append(path)
+                # Add metadata for AI context
+                stats = df[choice].describe().to_dict() if choice in df.columns else {}
+                context.user_data['visuals_history'].append({
+                    'path': path,
+                    'title': f"Histogram of {choice}",
+                    'type': 'histogram',
+                    'data': stats
+                })
             context.user_data['visual_type'] = None
             return await show_visual_menu("✅ Histogram generated!")
         
@@ -2764,7 +2789,14 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
             if path:
                 await update.message.reply_photo(photo=open(path, 'rb'), caption=f"🥧 Pie Chart: {choice}")
                 if 'visuals_history' not in context.user_data: context.user_data['visuals_history'] = []
-                context.user_data['visuals_history'].append(path)
+                # Add metadata for AI
+                counts = df[choice].value_counts().to_dict() if choice in df.columns else {}
+                context.user_data['visuals_history'].append({
+                    'path': path,
+                    'title': f"Pie Chart of {choice}",
+                    'type': 'pie_chart',
+                    'data': counts
+                })
                 # Thinking Ahead
                 await update.message.reply_text(
                     "**Suggestions: Tips to Consider**\n"
@@ -2781,7 +2813,14 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
             if path:
                 await update.message.reply_photo(photo=open(path, 'rb'), caption=f"📊 Bar Chart: {choice}")
                 if 'visuals_history' not in context.user_data: context.user_data['visuals_history'] = []
-                context.user_data['visuals_history'].append(path)
+                # Add metadata for AI
+                counts = df[choice].value_counts().to_dict() if choice in df.columns else {}
+                context.user_data['visuals_history'].append({
+                    'path': path,
+                    'title': f"Bar Chart of {choice}",
+                    'type': 'bar_chart',
+                    'data': counts
+                })
                 # Thinking Ahead
                 await update.message.reply_text(
                     "**Suggestions: Tips to Consider**\n"
@@ -2822,7 +2861,15 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
             if path:
                 await update.message.reply_photo(photo=open(path, 'rb'), caption=caption)
                 if 'visuals_history' not in context.user_data: context.user_data['visuals_history'] = []
-                context.user_data['visuals_history'].append(path)
+                
+                # Add metadata for AI context
+                context.user_data['visuals_history'].append({
+                    'path': path,
+                    'title': caption,
+                    'type': vtype,
+                    'vars': [var1, choice],
+                    'data': f"Relationship between {var1} and {choice}"
+                })
                 # Thinking Ahead
                 await update.message.reply_text(
                     "**Suggestions: Tips to Consider**\n"

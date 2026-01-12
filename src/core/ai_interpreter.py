@@ -94,11 +94,16 @@ class AIInterpreter:
             if visuals_history:
                 context_text += "\n\nRECENT CHARTS GENERATED:\n"
                 for i, item in enumerate(visuals_history[-3:], 1):
+                    # SAFETY CHECK: If someone appended a string path instead of a dict
+                    if isinstance(item, str):
+                        context_text += f"{i}. Chart: {os.path.basename(item)}\n"
+                        continue
+                        
                     # item keys: path, title, type, data
-                    chart_info = f"{i}. {item.get('title')} ({item.get('type')})"
+                    chart_info = f"{i}. {item.get('title', 'Chart')} ({item.get('type', 'unknown')})"
                     if item.get('data'):
-                         # Include descriptive stats captured for the chart (especially Histograms)
-                         chart_info += f"\n   Underlying Data/Stats: {str(item.get('data'))[:600]}"
+                         # Include descriptive stats captured for the chart
+                         context_text += f"\n   Underlying Data/Stats: {str(item.get('data'))[:600]}"
                     context_text += chart_info + "\n"
 
             system_prompt = (
@@ -203,6 +208,14 @@ class AIInterpreter:
             p = results.get('p_val', 1.0)
             sig = "significant" if p < 0.05 else "not significant"
             return f"📊 Interpretation:\n\nThe Chi-square test was statistically {sig} (p={p:.4f})."
+        elif analysis_type == "mwu":
+            p = results.get('p-val', results.get('p_val', 1.0))
+            sig = "significant" if p < 0.05 else "not significant"
+            return f"📊 Interpretation:\n\nThe Mann-Whitney U test results indicate a {sig} difference between the groups (p={p:.4f})."
+        elif analysis_type == "anova":
+            p = results.get('p_val', 1.0)
+            sig = "significant" if p < 0.05 else "not significant"
+            return f"📊 Interpretation:\n\nThe ANOVA results show a {sig} difference between the group means (p={p:.4f})."
         elif analysis_type == "reliability":
             alpha = results.get('alpha', 0)
             return f"📊 Interpretation:\n\nCronbach's Alpha = {alpha:.3f}. Values above 0.7 are generally acceptable for reliability."
