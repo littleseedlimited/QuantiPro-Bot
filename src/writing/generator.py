@@ -238,11 +238,17 @@ class ManuscriptGenerator:
         return p
     
     def _add_table(self, data: Any, title: str = "") -> None:
-        """Render a pandas DataFrame or list of dicts as a Word table."""
+        """Render a pandas DataFrame or list of dicts as a Word table with improved styling."""
         import pandas as pd
         
         if title:
-            self._add_paragraph(title, bold=True, italic=True, center=True)
+            # Table Title above table
+            p = self.doc.add_paragraph()
+            run = p.add_run(title)
+            run.bold = True
+            run.font.size = Pt(11)
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p.paragraph_format.space_after = Pt(6)
             
         df = None
         if isinstance(data, pd.DataFrame):
@@ -256,12 +262,16 @@ class ManuscriptGenerator:
             # Create table
             table = self.doc.add_table(rows=1, cols=len(df.columns))
             table.style = 'Table Grid'
+            table.alignment = WD_ALIGN_PARAGRAPH.CENTER
             
             # Header
             hdr_cells = table.rows[0].cells
             for i, col in enumerate(df.columns):
                 hdr_cells[i].text = str(col)
-                hdr_cells[i].paragraphs[0].runs[0].bold = True
+                p = hdr_cells[i].paragraphs[0]
+                run = p.runs[0]
+                run.bold = True
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 
             # Rows
             for index, row in df.iterrows():
@@ -271,8 +281,10 @@ class ManuscriptGenerator:
                     if isinstance(value, float):
                         val_str = f"{value:.3f}"
                     row_cells[i].text = val_str
+                    row_cells[i].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
             
-            self.doc.add_paragraph()  # Spacing after table
+            # Space after
+            self.doc.add_paragraph()
     
     def generate(self, 
                  filename: str,
@@ -332,11 +344,31 @@ class ManuscriptGenerator:
             if stats_results:
                 self.doc.add_heading("Results", level=1)
                 for res in stats_results:
-                    if isinstance(res, dict) and 'type' in res and res['type'] == 'table':
-                        # Structured table data
-                        self._add_table(res['data'], title=res.get('title', ''))
-                        if 'narrative' in res:
-                             self._add_paragraph(res['narrative'])
+                    if isinstance(res, dict) and 'type' in res:
+                        if res['type'] == 'table':
+                            # Structured table data
+                            self._add_table(res['data'], title=res.get('title', ''))
+                            if 'narrative' in res:
+                                 self._add_paragraph(res['narrative'])
+                        elif res['type'] == 'image':
+                             # INLINE IMAGE (Figure)
+                            img_path = res.get('path')
+                            if img_path and os.path.exists(img_path):
+                                try:
+                                    self.doc.add_picture(img_path, width=Inches(5.0))
+                                    last_p = self.doc.paragraphs[-1]
+                                    last_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                                    
+                                    caption = self.doc.add_paragraph()
+                                    run = caption.add_run(res.get('title', 'Figure'))
+                                    run.italic = True
+                                    caption.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                                    
+                                    if 'narrative' in res:
+                                         self._add_paragraph(res['narrative'])
+                                    self.doc.add_paragraph() # Spacer
+                                except:
+                                    pass
                     elif isinstance(res, str):
                         for para in res.split('\n\n'):
                             if para.strip():
@@ -422,11 +454,31 @@ class ManuscriptGenerator:
         if stats_results:
             self.doc.add_heading("Results", level=1)
             for res in stats_results:
-                if isinstance(res, dict) and 'type' in res and res['type'] == 'table':
-                    # Structured table data
-                    self._add_table(res['data'], title=res.get('title', ''))
-                    if 'narrative' in res:
-                         self._add_paragraph(res['narrative'])
+                if isinstance(res, dict) and 'type' in res:
+                    if res['type'] == 'table':
+                        # Structured table data
+                        self._add_table(res['data'], title=res.get('title', ''))
+                        if 'narrative' in res:
+                             self._add_paragraph(res['narrative'])
+                    elif res['type'] == 'image':
+                        # INLINE IMAGE (Figure)
+                        img_path = res.get('path')
+                        if img_path and os.path.exists(img_path):
+                            try:
+                                self.doc.add_picture(img_path, width=Inches(5.0))
+                                last_p = self.doc.paragraphs[-1]
+                                last_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                                
+                                caption = self.doc.add_paragraph()
+                                run = caption.add_run(res.get('title', 'Figure'))
+                                run.italic = True
+                                caption.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                                
+                                if 'narrative' in res:
+                                     self._add_paragraph(res['narrative'])
+                                self.doc.add_paragraph() # Spacer
+                            except:
+                                pass
                 elif isinstance(res, str):
                     # Legacy string format
                     for para in res.split('\n\n'):

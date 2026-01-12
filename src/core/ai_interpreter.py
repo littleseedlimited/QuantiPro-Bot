@@ -224,58 +224,29 @@ class AIInterpreter:
         
         return "📊 Analysis complete. Review the results above."
 
-    async def generate_discussion(self, 
-                                   title: str,
-                                   objectives: str,
-                                   questions: str,
-                                   hypotheses: str,
-                                   analysis_history: list,
-                                   descriptive_stats: str = "",
-                                   **kwargs) -> str:
-
+    async def generate_discussion(self, title: str, 
+                                  objectives: str, 
+                                  questions: str, 
+                                  hypotheses: str, 
+                                  analysis_history: list, 
+                                  descriptive_stats: str = "",
+                                  style_hint: str = "technical but simple and academic",
+                                  **kwargs) -> str:
         """
-        Generate a comprehensive Discussion section summarizing all findings.
-        
-        Args:
-            title: Research title
-            objectives: Research objectives
-            questions: Research questions
-            hypotheses: Research hypotheses  
-            analysis_history: List of analysis records with test, vars, result, data
-            descriptive_stats: String of descriptive statistics
-            
-        Returns:
-            Comprehensive discussion text
+        Generate a comprehensive research discussion and interpretation.
         """
-        # Build analysis summary
-        analyses_text = []
-        for i, analysis in enumerate(analysis_history, 1):
-            test_type = analysis.get('test', 'Unknown')
-            vars_used = analysis.get('vars', 'N/A')
-            data = analysis.get('data', {})
-            
-            # Extract key statistics
-            if test_type == 'T-Test':
-                stat_summary = f"t={data.get('t_val', 'N/A')}, p={data.get('p_val', 'N/A')}"
-            elif test_type == 'Correlation':
-                stat_summary = f"r={data.get('r', 'N/A')}"
-            elif test_type == 'Regression':
-                stat_summary = f"R²={data.get('r_squared', 'N/A')}, p={data.get('f_pvalue', 'N/A')}"
-            elif test_type == 'Chi-Square':
-                stat_summary = f"χ²={data.get('chi2', 'N/A')}, p={data.get('p_val', 'N/A')}"
-            elif test_type == 'Reliability':
-                stat_summary = f"α={data.get('alpha', 'N/A')}"
-            else:
-                stat_summary = str(data)[:100]
-            
-            analyses_text.append(f"{i}. {test_type} ({vars_used}): {stat_summary}")
-        
-        analyses_summary = "\n".join(analyses_text) if analyses_text else "No analyses performed."
-        
         if self.api_key:
             try:
                 from openai import AsyncOpenAI
                 client = AsyncOpenAI(api_key=self.api_key)
+                
+                # Consolidate analysis history for the prompt
+                analyses_summary = ""
+                for i, item in enumerate(analysis_history, 1):
+                    test = item.get('test', 'Analysis')
+                    vars = item.get('vars', 'N/A')
+                    res = item.get('result', 'No detailed result available')
+                    analyses_summary += f"{i}. {test} on {vars}:\n   {res}\n\n"
                 
                 # Word count instruction based on target
                 min_words = kwargs.get('min_word_count', 1500)
@@ -306,12 +277,18 @@ DESCRIPTIVE STATISTICS (Summary):
 Write comprehensive manuscript content that includes:
 1. INTRODUCTION - Background and rationale (2-3 paragraphs)
 2. KEY FINDINGS - Summary of results (2-3 paragraphs)
-3. INTERPRETATION - Explain each analysis result in context of research questions
+3. INTERPRETATION - Explain each analysis result in context of research questions. 
+   ENRICH with clear, technical but easy-to-understand narratives for each finding.
 4. HYPOTHESIS TESTING - State whether hypotheses were SUPPORTED or NOT SUPPORTED with evidence
 5. IMPLICATIONS - Practical and theoretical implications (1-2 paragraphs)
 6. LIMITATIONS - Acknowledge study limitations (1 paragraph)
 7. FUTURE RESEARCH - Suggest directions for future research (1 paragraph)
 8. CONCLUSION - Summary of key takeaways (1 paragraph)
+
+STYLE REQUIREMENT:
+- {style_hint}
+- Use formal academic prose
+- Avoid buzzwords; focus on data-driven clarity
 
 CRITICAL WORD COUNT REQUIREMENT:
 Your response MUST be between {min_words} and {max_words} words.
@@ -321,7 +298,6 @@ Expand on each point thoroughly. Add context, examples, and detailed explanation
 IMPORTANT FORMATTING:
 - Use clear paragraph structure
 - Do NOT use markdown, asterisks, or bullet points
-- Write in formal academic prose
 - Start directly with the content (no headers or section labels)"""
                 
                 response = await client.chat.completions.create(

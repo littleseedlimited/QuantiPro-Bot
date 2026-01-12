@@ -2333,55 +2333,82 @@ async def manuscript_review_handler(update: Update, context: ContextTypes.DEFAUL
                 analysis_history = context.user_data.get('analysis_history', [])
                 references = context.user_data.get('references', [])
                 
-                # Build stats results with STRUCTURED TABLES
+                # Build stats results with deduplicated content
                 stats_results = []
+                processed_tests = set()
                 
-                # 1. Descriptive Stats Table
+                # 1. Descriptive Stats (Only once)
                 try:
                     desc_df = Analyzer.get_descriptive_stats(df)
                     stats_results.append({
                         'type': 'table', 
-                        'title': 'Table 1: Descriptive Statistics', 
-                        'data': desc_df
+                        'title': 'Table 1: Descriptive Statistics of Research Variables', 
+                        'data': desc_df,
+                        'narrative': "The table above summarizes the central tendency and dispersion for the primary numeric variables in the study."
                     })
-                    # Keep legacy string for AI context
                     desc_res = desc_df.to_string()
+                    processed_tests.add('descriptive_stats')
                 except:
                     desc_res = "Not available"
-                    pass
+                
+                # 2. Gather visuals to map them to analyses
+                visuals_history = context.user_data.get('visuals_history', [])
+                visual_map = {} # title -> item
+                for v in visuals_history:
+                    if isinstance(v, dict):
+                        visual_map[v.get('title')] = v
+                    elif isinstance(v, str):
+                        visual_map[os.path.basename(v)] = {'path': v}
 
-                # 2. History Results
+                # 3. Process primary analysis history
                 for i, analysis in enumerate(analysis_history, 1):
                     try:
-                        # Ensure analysis is a dict
-                        if not isinstance(analysis, dict):
-                            continue
-                            
-                        detailed_res = analysis.get('result', '')
-                        test_name = analysis.get('test', f'Analysis {i}')
+                        if not isinstance(analysis, dict): continue
+                        
+                        test_name = analysis.get('test', 'Analysis')
+                        if 'Descriptive' in test_name: continue # Already added as Table 1
+                        
                         vars_str = analysis.get('vars', 'N/A')
-                        
-                        narrative = f"Analysis {i}: {test_name}\nVariables: {vars_str}\n{detailed_res}"
-                        
-                        # Try to get tabular data
                         data_content = analysis.get('data')
-                        if isinstance(data_content, (dict, list)):
-                             stats_results.append({
-                                'type': 'table',
-                                'title': f"Table {i+1}: {test_name} Results",
-                                'data': data_content,
-                                'narrative': narrative
-                             })
-                        else:
-                            stats_results.append(narrative)
-                    except Exception as loop_e:
-                        print(f"Skipping analysis {i} due to error: {loop_e}")
+                        detailed_res = analysis.get('result', '')
+                        
+                        # Formatting for Crosstab
+                        if test_name == 'Crosstab' and isinstance(data_content, dict):
+                            data_content = Analyzer.format_crosstab_manuscript(data_content)
+                            detailed_res = "Crosstabulation analysis was performed to examine the relationship between categorical variables."
+                        
+                        # Add Table
+                        stats_results.append({
+                            'type': 'table',
+                            'title': f"Table {len(stats_results)+1}: {test_name} - {vars_str}",
+                            'data': data_content,
+                            'narrative': detailed_res
+                        })
+                        
+                        # Look for matching visual to place it IMMEDIATELY after the table
+                        # Check titles or var names
+                        for v_title, v_item in list(visual_map.items()):
+                            if test_name.lower() in v_title.lower() or vars_str in v_title:
+                                stats_results.append({
+                                    'type': 'image',
+                                    'title': f"Figure {i}: {v_title}",
+                                    'path': v_item.get('path'),
+                                    'narrative': f"Figure {i} visualizes the relationship described in Table {len(stats_results)}."
+                                })
+                                del visual_map[v_title] # Avoid repetition later
+                                break
+                    except:
                         continue
                 
-                # Gather visuals
-                visuals_history = context.user_data.get('visuals_history', [])
-                
-                # Generate AI discussion
+                # 4. Add any remaining visuals (not linked to an analysis)
+                for v_title, v_item in visual_map.items():
+                    stats_results.append({
+                        'type': 'image',
+                        'title': f"Figure {len(stats_results)}: {v_title}",
+                        'path': v_item.get('path')
+                    })
+
+                # Generate AI discussion (Simplified but technical)
                 try:
                     interpreter = AIInterpreter()
                     discussion = await interpreter.generate_discussion(
@@ -2392,7 +2419,8 @@ async def manuscript_review_handler(update: Update, context: ContextTypes.DEFAUL
                         analysis_history=analysis_history,
                         descriptive_stats=desc_res,
                         min_word_count=settings.get('min_word_count', 1500),
-                        max_word_count=settings.get('max_word_count', 2500)
+                        max_word_count=settings.get('max_word_count', 2500),
+                        style_hint="technical but simple to understand, use academic prose, enrich with clear narratives"
                     )
                 except Exception as ai_e:
                     print(f"AI Discussion Error: {ai_e}")
@@ -2440,7 +2468,7 @@ async def manuscript_review_handler(update: Update, context: ContextTypes.DEFAUL
                     stats_results=stats_results,
                     discussion_text=discussion,
                     references=references,
-                    images=visuals_history
+                    images=[] # Handled inline via stats_results now to avoid repetition
                 )
                 
                 await update.message.reply_document(

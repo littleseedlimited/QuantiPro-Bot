@@ -500,3 +500,38 @@ class Analyzer:
             return f"📊 **Comprehensive Descriptive Statistics**\n\n```\n{table}\n```"
         except Exception as e:
             return f"Error formatting stats: {str(e)}"
+    @staticmethod
+    def format_crosstab_manuscript(ct_result: Dict[str, Any]) -> pd.DataFrame:
+        """
+        Create a consolidated DataFrame for manuscript tables.
+        Merged Counts (n), Row %, and Col % into cell strings.
+        """
+        if "error" in ct_result:
+            return pd.DataFrame({"Error": [ct_result["error"]]})
+            
+        counts = ct_result.get('full_counts', ct_result['counts'])
+        row_pct = ct_result.get('row_percentages')
+        col_pct = ct_result.get('col_percentages')
+        
+        # Create a display copy
+        display_df = pd.DataFrame(index=counts.index, columns=counts.columns)
+        
+        for row in counts.index:
+            for col in counts.columns:
+                n = counts.loc[row, col]
+                text = f"{int(n)}"
+                
+                # Add percentages if not a margin/total cell (optional, usually preferred)
+                if row != 'Total' and col != 'Total':
+                    parts = []
+                    if row_pct is not None:
+                        parts.append(f"{row_pct.loc[row, col]:.1f}%R")
+                    if col_pct is not None:
+                        parts.append(f"{col_pct.loc[row, col]:.1f}%C")
+                    
+                    if parts:
+                        text += f" ({', '.join(parts)})"
+                
+                display_df.loc[row, col] = text
+        
+        return display_df
