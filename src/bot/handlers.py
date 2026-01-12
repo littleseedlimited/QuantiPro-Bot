@@ -3874,6 +3874,8 @@ async def ai_chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Times New Roman", "Arial", "Calibri", "Georgia",
         "Single (1.0)", "1.5 Spacing", "Double (2.0)",
         "APA 7th", "MLA 9th", "Harvard", "Vancouver",
+        "📝 Tips to consider", "🎓 Tips to consider",
+        "📝 Use AI Suggestions", "🎓 Use AI Suggested Hypotheses",
         "📝 Short (1500-2500)", "📄 Medium (3000-5000)",
         "Is there a significant difference between groups?",
         "Is there a relationship between variables?",

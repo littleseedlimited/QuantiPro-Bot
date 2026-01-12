@@ -136,7 +136,7 @@ class InterviewManager:
                 ['Is there a relationship between variables?'],
                 ['Can we predict an outcome from predictors?'],
                 ['What are the characteristics of the sample?'],
-                ['📝 Use AI Suggestions', 'Type my own question']
+                ['📝 Tips to consider', 'Type my own question']
             ], one_time_keyboard=True)
         )
         return RESEARCH_QUESTIONS
@@ -154,7 +154,7 @@ class InterviewManager:
             await update.message.reply_text("Please type your **Research Question**:")
             return RESEARCH_QUESTIONS
 
-        if choice == '📝 Use AI Suggestions':
+        if choice == '📝 Tips to consider':
             suggestions = context.user_data.get('ai_suggestions', {})
             q_list = suggestions.get('questions', [])
             if isinstance(q_list, list):
@@ -190,7 +190,7 @@ class InterviewManager:
                 ['There is a significant relationship between X and Y'],
                 ['X significantly predicts Y'],
                 ['No hypothesis (exploratory study)'],
-                ['🎓 Use AI Suggested Hypotheses', 'Type my own hypothesis']
+                ['🎓 Tips to consider', 'Type my own hypothesis']
             ], one_time_keyboard=True)
         )
         return RESEARCH_HYPOTHESIS
@@ -204,7 +204,7 @@ class InterviewManager:
             await show_action_menu(update, "Returned to main menu.")
             return ACTION
             
-        if choice == '🎓 Use AI Suggested Hypotheses':
+        if choice == '🎓 Tips to consider':
             suggestions = context.user_data.get('ai_suggestions', {})
             h_list = suggestions.get('hypotheses', [])
             if isinstance(h_list, list):

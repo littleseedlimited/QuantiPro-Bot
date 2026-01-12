@@ -207,7 +207,9 @@ def main():
             CHART_CONFIG: [MessageHandler(filters.TEXT & ~filters.COMMAND, chart_config_input_handler)],
         },
         fallbacks=[CommandHandler('cancel', cancel)],
-        allow_reentry=True
+        allow_reentry=True,
+        name="quantipro_conv",
+        persistent=True
     )
 
 
