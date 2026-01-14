@@ -26,10 +26,10 @@ ANALYSIS_GUIDE = {
         'use_case': 'Checking the relationship between advertising spend and sales revenue.'
     },
     'regression': {
-        'name': 'Linear Regression',
-        'description': 'Predicts a dependent variable based on one or more independent predictor variables.',
-        'variables': '1 Numeric Outcome + 1 or more Numeric Predictors.',
-        'use_case': 'Predicting house prices based on size, location, and age.'
+        'name': 'Regression Analysis',
+        'description': 'Predicts a dependent variable based on one or more independent predictor variables. Supports both Linear and Logistic models.',
+        'variables': 'Numeric outcome (Linear) or Binary outcome (Logistic) + 1 or more Predictors.',
+        'use_case': 'Predicting house prices (Linear) or predicting "Success/Failure" (Logistic) with Odds Ratios.'
     },
     'crosstab': {
         'name': 'Crosstab (Chi-Square)',

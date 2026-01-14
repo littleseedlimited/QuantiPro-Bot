@@ -132,13 +132,17 @@ async def guide_confirm_handler(update: Update, context: ContextTypes.DEFAULT_TY
         )
         return ACTION
     elif test_key == 'regression':
-        context.user_data['awaiting_regression_dep'] = True
-        num_cols = context.user_data.get('num_cols', [])
-        from src.bot.handlers import get_column_markup
         await update.message.reply_text(
-            "Select the **Outcome (Dependent)** variable:",
-            reply_markup=get_column_markup(num_cols)
+            "**Regression Analysis**\n\n"
+            "Select regression type:",
+            parse_mode='Markdown',
+            reply_markup=ReplyKeyboardMarkup([
+                ['Linear Regression', 'Logistic Regression'],
+                ['Multiple Regression'],
+                ['◀️ Back to Menu']
+            ], one_time_keyboard=True, resize_keyboard=True)
         )
+        context.user_data['awaiting_regression_type'] = True
         return ACTION
     elif test_key == 'crosstab':
         context.user_data['awaiting_crosstab_row'] = True

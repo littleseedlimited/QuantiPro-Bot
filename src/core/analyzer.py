@@ -308,24 +308,83 @@ class Analyzer:
     @staticmethod
     def run_logistic_regression(df: pd.DataFrame, x_cols: List[str], y_col: str) -> Dict[str, Any]:
         """
-        Binary Logistic Regression.
+        Binary Logistic Regression with Crude and Adjusted Odds Ratios.
         """
         if not HAS_ADVANCED_STATS:
-            return {"error": "Statsmodels required."}
+            return {"error": "Statsmodels required for Logistic Regression."}
             
-        clean_df = df[[y_col] + x_cols].dropna()
-        X = clean_df[x_cols]
+        import statsmodels.api as sm
+        import numpy as np
+        
+        # Data Cleaning
+        cols_to_use = [y_col] + x_cols
+        clean_df = df[cols_to_use].copy()
+        for col in cols_to_use:
+            clean_df[col] = pd.to_numeric(clean_df[col], errors='coerce')
+        clean_df = clean_df.dropna()
+        
+        if len(clean_df) < 10: # Rule of thumb
+            return {"error": f"Insufficient data. Need more observations (got {len(clean_df)})."}
+
         y = clean_df[y_col]
-        X = sm.add_constant(X)
+        X_all = clean_df[x_cols]
         
-        model = sm.Logit(y, X).fit()
-        
-        return {
-            "summary": model.summary().as_text(),
-            "params": model.params.to_dict(),
-            "pvalues": model.pvalues.to_dict(),
-            "pseudo_r2": model.prsquared
-        }
+        results = {}
+        or_data = []
+
+        try:
+            # 1. ADJUSTED ANALYSIS (Multivariate)
+            X_adj = sm.add_constant(X_all)
+            model_adj = sm.Logit(y, X_adj).fit(disp=0)
+            
+            summary_adj = model_adj.summary2().tables[1]
+            conf_int_adj = model_adj.conf_int()
+            
+            # 2. CRUDE ANALYSIS (Univariate for each predictor)
+            for col in x_cols:
+                X_crude = sm.add_constant(clean_df[[col]])
+                try:
+                    model_crude = sm.Logit(y, X_crude).fit(disp=0)
+                    summary_crude = model_crude.summary2().tables[1]
+                    conf_int_crude = model_crude.conf_int()
+                    
+                    # Extract Crude values for the variable (not intercept)
+                    beta_c = model_crude.params[col]
+                    se_c = model_crude.bse[col]
+                    p_c = model_crude.pvalues[col]
+                    ci_low_c, ci_high_c = conf_int_crude.loc[col]
+                    
+                    # Adjusted values
+                    beta_a = model_adj.params[col]
+                    se_a = model_adj.bse[col]
+                    p_a = model_adj.pvalues[col]
+                    ci_low_a, ci_high_a = conf_int_adj.loc[col]
+                    
+                    or_data.append({
+                        'Variable': col,
+                        'COR': np.exp(beta_c),
+                        'COR_CI': (np.exp(ci_low_c), np.exp(ci_high_c)),
+                        'P_Crude': p_c,
+                        'AOR': np.exp(beta_a),
+                        'AOR_CI': (np.exp(ci_low_a), np.exp(ci_high_a)),
+                        'P_Adjusted': p_a
+                    })
+                except Exception as e:
+                    logger.warning(f"Crude regression failed for {col}: {e}")
+            
+            results = {
+                "test_type": "Binary Logistic Regression (OR Analysis)",
+                "n_observations": len(clean_df),
+                "pseudo_r2": model_adj.prsquared,
+                "aic": model_adj.aic,
+                "or_results": or_data,
+                "full_summary": model_adj.summary().as_text()
+            }
+            return results
+            
+        except Exception as e:
+            logger.error(f"Logistic Regression failed: {e}")
+            return {"error": f"Model failed to converge or invalid data: {str(e)}"}
 
     @staticmethod
     def frequency_table(df: pd.DataFrame, column: str) -> Dict[str, Any]:

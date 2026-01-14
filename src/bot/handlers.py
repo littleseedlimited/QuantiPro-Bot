@@ -537,70 +537,7 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
         return ACTION
 
-    # --- HANDLE AI CHAT MODE FIRST (before other resets) ---
-    if context.user_data.get('ai_chat_mode'):
-        if choice == 'Exit Chat' or choice.lower() == 'exit':
-            context.user_data['ai_chat_mode'] = False
-            await show_action_menu(update, "Exited AI Chat.")
-            return ACTION
-        
-        # Process AI query about data
-        try:
-            msg_handle = await update.message.reply_text("🤖 Processing your request... (this may take up to 30s)")
-            
-            # Use pre-loaded df
-            df = context.user_data.get('df')
-            if df is None and file_path and os.path.exists(file_path):
-                df, _ = FileManager.load_file(file_path)
-            
-            # Build context for AI
-            if df is not None:
-                data_summary = f"Dataset: {len(df)} rows, {len(df.columns)} columns\n"
-                data_summary += f"Columns: {', '.join(df.columns.tolist())}\n"
-                num_cols = df.select_dtypes(include='number').columns.tolist()
-                data_summary += f"Numeric: {', '.join(num_cols[:50])}" 
-            else:
-                data_summary = "No dataset loaded. Answering as a general statistics assistant."
-            
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
-                await msg_handle.edit_text("❌ Error: OpenAI API Key not configured.")
-                return ACTION
-
-            client = AsyncOpenAI(api_key=api_key)
-            
-            try:
-                response = await client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[
-                        {"role": "system", "content": f"You are a statistical analyst assistant. The user has a dataset with these details:\n{data_summary}\n\nAnswer their question about the data or statistics in general. Be clear and helpful. Format your response nicely for Telegram."},
-                        {"role": "user", "content": choice}
-                    ],
-                    max_tokens=500,
-                    timeout=25.0
-                )
-                answer = response.choices[0].message.content
-                
-                await msg_handle.delete()
-                await update.message.reply_text(f"🤖 **AI Response:**\n\n{answer}", parse_mode='Markdown')
-                
-            except asyncio.TimeoutError:
-                await msg_handle.edit_text("⚠️ AI Request Timed Out. Please try again or ask a simpler question.")
-                return ACTION
-            except Exception as ai_err:
-                await msg_handle.edit_text(f"⚠️ AI Error: {str(ai_err)[:100]}")
-                return ACTION
-
-            await update.message.reply_text(
-                "Ask another question or:",
-                reply_markup=ReplyKeyboardMarkup([['Exit Chat']], one_time_keyboard=True, resize_keyboard=True)
-            )
-        except Exception as e:
-            await update.message.reply_text(f"System Error: {str(e)[:100]}\n\nTry a simpler question.")
-        
-        return ACTION
-
-    # --- RESET STICKY STATES (only if NOT in AI chat mode) ---
+    # --- RESET STICKY STATES ---
     context.user_data['awaiting_column_select'] = None
 
     # --- VARIABLE LABEL MAPPING ---
@@ -733,7 +670,7 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Check if data is needed for this action
     data_required_actions = [
         'Descriptive Stats', 'Frequencies', 'Reliability Analysis', 'Tabulation',
-        'Correlation', 'Regression', 'Crosstab', 'Visuals', '📝 Generate Report'
+        'Correlation', '📉 Regression', 'Regression', 'Crosstab', '🎨 Visuals', 'Visuals', '📝 Generate Report'
     ]
     if choice in data_required_actions and df is None:
         await update.message.reply_text(
@@ -824,7 +761,9 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         '📈 Correlation': 'correlation',
         '📉 Regression': 'regression',
         '🎲 Crosstab': 'crosstab',
-        '📊 Tabulation': 'frequencies'
+        '📊 Tabulation': 'frequencies',
+        '🎨 Visuals': 'visuals',
+        '📉 Regression': 'regression'
     }
     
     for icon_label, test_key in analysis_map.items():
@@ -846,7 +785,7 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         from src.bot.analysis_handlers import show_guide
         return await show_guide(update, context, legacy_keys[choice])
 
-    if choice == '🎨 Visuals' or choice == 'Visuals':
+    if choice in ['🎨 Visuals', 'Visuals', '🎨 Create Visuals', 'Create Visuals']:
         return await visual_select_handler(update, context)
 
     # 5. REGRESSION (Fallthrough)
@@ -859,7 +798,7 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     main_menu_buttons = [
         'Interview Mode', 'Interview Mode (Guided)', 'AI Chat',
         'Descriptive Stats', 'Correlation', 'Tabulation', 'Crosstab',
-        'Regression', 'Create Visuals', 'Generate Report', 'Upload References',
+        '📉 Regression', 'Regression', '🎨 Visuals', 'Visuals', '🎨 Create Visuals', 'Create Visuals', 'Generate Report', 'Upload References',
         'Save & Exit', 'Cancel', 'Clean & Sort Data', 'Show Data Table'
     ]
     if choice in main_menu_buttons:
@@ -916,10 +855,14 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_action_menu(update)
         return ACTION
     
+    # 🎨 Visuals (Emoji-neutral routing)
+    if choice in ['🎨 Visuals', 'Visuals', '🎨 Create Visuals', 'Create Visuals']:
+        return await visual_select_handler(update, context)
+
     if choice == 'Interview Mode' or choice == 'Interview Mode (Guided)':
         return await InterviewManager.start_interview(update, context)
 
-    elif choice == 'AI Chat':
+    elif choice == '💬 AI Chat' or choice == 'AI Chat':
         context.user_data['ai_chat_mode'] = True
         await update.message.reply_text(
             "**AI Analysis Chat**\n\n"
@@ -935,91 +878,11 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ACTION
 
     elif context.user_data.get('ai_chat_mode'):
-        if choice == 'Exit Chat' or choice.lower() == 'exit':
-            context.user_data['ai_chat_mode'] = False
-            await show_action_menu(update, "Exited AI Chat.")
-            return ACTION
-        
-        # Process AI query about data
-        try:
-            msg_handle = await update.message.reply_text("Processing your request... (this may take up to 30s)")
-            
-            # Use pre-loaded df
-            if df is None:
-                await msg_handle.edit_text("⚠️ Dataset not available. Please re-upload.")
-                return ACTION
-            
-            # Build context for AI
-            data_summary = f"Dataset: {len(df)} rows, {len(df.columns)} columns\n"
-            data_summary += f"Columns: {', '.join(df.columns.tolist())}\n"
-            
-            # Add Data Snapshot (First 5 rows) for better context
-            try:
-                snapshot = df.head(5).to_markdown(index=False)
-                data_summary += f"\nData Snapshot (First 5 rows):\n{snapshot}\n"
-            except:
-                pass
-
-            # Add Analysis History
-            history = context.user_data.get('analysis_history', [])
-            if history:
-                data_summary += "\nAnalyses Performed:\n"
-                for h in history[-3:]: # Last 3 only
-                    data_summary += f"- {h['test']}: {str(h.get('result', ''))[:100]}...\n"
-
-            # Limit numeric cols string to avoid token limit
-            num_cols = df.select_dtypes(include='number').columns.tolist()
-            data_summary += f"\nNumeric Vars: {', '.join(num_cols[:50])}" 
-            
-            # from openai import AsyncOpenAI
-            # import os
-            # import asyncio
-            
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
-                await msg_handle.edit_text("❌ Error: OpenAI API Key not configured.")
-                return ACTION
-
-            client = AsyncOpenAI(api_key=api_key)
-            
-            try:
-                response = await client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[
-                        {"role": "system", "content": f"You are a statistical analyst. The user has a dataset:\n{data_summary}\n\nAnswer their question. Refer to the data snapshot/history if relevant. Be concise. Plain text only (no markdown tables)."},
-                        {"role": "user", "content": choice}
-                    ],
-                    max_tokens=400,
-                    timeout=30.0
-                )
-                answer = response.choices[0].message.content
-                
-                # Clean any remaining markdown
-                import re
-                answer = re.sub(r'\*\*([^*]+)\*\*', r'\1', answer)
-                answer = re.sub(r'\*([^*]+)\*', r'\1', answer)
-                
-                await msg_handle.delete() # Remove "Processing..."
-                await update.message.reply_text(f"Analysis Result:\n\n{answer}")
-                
-            except asyncio.TimeoutError:
-                await msg_handle.edit_text("⚠️ AI Request Timed Out. Please try again or ask a simpler question.")
-                return ACTION
-            except Exception as ai_err:
-                await msg_handle.edit_text(f"⚠️ AI Error: {str(ai_err)[:100]}")
-                return ACTION
-
-            await update.message.reply_text(
-                "Ask another question or:",
-                reply_markup=ReplyKeyboardMarkup([['Exit Chat']], one_time_keyboard=True)
-            )
-        except Exception as e:
-            await update.message.reply_text(f"System Error: {str(e)[:100]}\n\nTry a simpler question.")
-        
-        return ACTION
+        # Just return and let the global ai_chat_handler at the bottom handle it
+        return await ai_chat_handler(update, context)
 
     # Handle Regression Analysis
-    elif choice == 'Regression':
+    elif choice in ['📉 Regression', 'Regression']:
         all_cols = context.user_data.get('columns', [])
         num_cols = context.user_data.get('num_cols', [])
         
@@ -1114,44 +977,63 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if 'logistic' in reg_type:
                     result = Analyzer.run_logistic_regression(df, ind_vars, dep_var)
                 else:
-                    # Fix: run_linear_regression does not exist, use run_regression
-                    # Signature: df, x_cols, y_col
                     result = Analyzer.run_regression(df, ind_vars, dep_var)
                 
                 if 'error' in result:
-                    await update.message.reply_text(f"Error: {result['error']}")
+                    await update.message.reply_text(f"❌ Error: {result['error']}")
                 else:
-                    # Format results as table
+                    # Format results
                     escaped_dep = str(dep_var).replace('_', '\\_')
-                    output = f"**Regression Results**\n"
-                    output += f"Dependent: {escaped_dep}\n"
-                    output += f"Type: {reg_type.replace('_', ' ').title()}\n\n"
+                    output = f"📊 **{result.get('test_type', 'Regression Results')}**\n"
+                    output += f"🎯 Dependent: `{escaped_dep}`\n"
+                    output += f"📏 N={result.get('n_observations', 'N/A')}\n\n"
                     
-                    if 'logistic' in reg_type:
-                        output += f"Pseudo R2: {result.get('pseudo_r2', 'N/A'):.4f}\n\n"
+                    if 'logistic' in reg_type and 'or_results' in result:
+                        output += f"📈 Pseudo R2: {result.get('pseudo_r2', 0):.4f}\n"
+                        output += f"📉 AIC: {result.get('aic', 0):.2f}\n\n"
+                        
+                        # OR Summary Table
+                        output += "```\n"
+                        output += f"{'Var':<10} {'COR (95% CI)':<18} {'AOR (95% CI)':<18} {'p-adj':<6}\n"
+                        output += "-" * 55 + "\n"
+                        
+                        for row in result['or_results']:
+                            var = str(row['Variable'])[:10]
+                            cor = f"{row['COR']:.2f}"
+                            cor_ci = f"({row['COR_CI'][0]:.1f}-{row['COR_CI'][1]:.1f})"
+                            
+                            aor = f"{row['AOR']:.2f}"
+                            aor_ci = f"({row['AOR_CI'][0]:.1f}-{row['AOR_CI'][1]:.1f})"
+                            
+                            p_adj = row['P_Adjusted']
+                            sig = "*" if p_adj < 0.05 else " "
+                            p_str = f"{p_adj:.3f}{sig}"
+                            
+                            output += f"{var:<10} {cor:<4} {cor_ci:<13} {aor:<4} {aor_ci:<13} {p_str:<6}\n"
+                        output += "```\n\\* p < 0.05\n(COR=Crude, AOR=Adjusted Odds Ratio)"
                     else:
-                        output += f"R-squared: {result.get('r_squared', 'N/A'):.4f}\n\n"
+                        output += f"📈 R-squared: {result.get('r_squared', 0):.4f}\n\n"
+                        output += "```\n"
+                        output += f"{'Variable':<15} {'Coef':<10} {'p-value':<10}\n"
+                        output += "-" * 35 + "\n"
+                        
+                        params = result.get('params', {})
+                        pvals = result.get('pvalues', {})
+                        
+                        for var in params:
+                            coef = params[var]
+                            pval = pvals.get(var, 'N/A')
+                            sig = "*" if isinstance(pval, (float, np.float64)) and pval < 0.05 else ""
+                            p_val_disp = f"{pval:.4f}" if isinstance(pval, (float, np.float64)) else str(pval)
+                            output += f"{str(var)[:15]:<15} {coef:<10.4f} {p_val_disp:<10}{sig}\n"
+                        output += "```\n\\* p < 0.05"
                     
-                    output += "```\n"
-                    output += f"{'Variable':<15} {'Coef':<10} {'p-value':<10}\n"
-                    output += "-" * 35 + "\n"
-                    
-                    params = result.get('params', {})
-                    pvals = result.get('pvalues', {})
-                    
-                    for var in params:
-                        coef = params[var]
-                        pval = pvals.get(var, 'N/A')
-                        sig = "*" if isinstance(pval, float) and pval < 0.05 else ""
-                        output += f"{var:<15} {coef:<10.4f} {pval:<10.4f}{sig}\n"
-                    
-                    output += "```\n\\* p < 0.05"
-                    
-                    # Log to history for AI Chat
+                    # Store in history
+                    if 'analysis_history' not in context.user_data: context.user_data['analysis_history'] = []
                     context.user_data['analysis_history'].append({
-                        'test': f"Regression ({reg_type})",
+                        'test': result.get('test_type', f"Regression ({reg_type})"),
                         'vars': f"{dep_var} ~ {' + '.join(ind_vars)}",
-                        'result': f"R2: {result.get('r_squared', 0):.4f}",
+                        'result': output,
                         'data': result
                     })
                     
@@ -1178,7 +1060,9 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if 'regression_ind_vars' not in context.user_data:
             context.user_data['regression_ind_vars'] = []
         
-        if choice not in context.user_data['regression_ind_vars']:
+        if choice in context.user_data['regression_ind_vars']:
+            context.user_data['regression_ind_vars'].remove(choice)
+        else:
             context.user_data['regression_ind_vars'].append(choice)
         
         selected = context.user_data['regression_ind_vars']
@@ -1272,11 +1156,13 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if 'selected_corr_vars' not in context.user_data:
             context.user_data['selected_corr_vars'] = []
             
-        if clean_choice not in context.user_data['selected_corr_vars']:
+        if clean_choice in context.user_data['selected_corr_vars']:
+            context.user_data['selected_corr_vars'].remove(clean_choice)
+        else:
             context.user_data['selected_corr_vars'].append(clean_choice)
         
+        selected = context.user_data['selected_corr_vars']
         num_cols = context.user_data.get('num_cols', [])
-        selected = context.user_data.get('selected_corr_vars', [])
         markup = get_column_markup(num_cols, extra_buttons=['Done Selecting'], back_label='◀️ Back to Menu', selected_items=selected)
         
         await update.message.reply_text(
@@ -1431,15 +1317,14 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if 'tabulation_vars' not in context.user_data:
             context.user_data['tabulation_vars'] = []
             
-        clean_choice = choice.replace('✅ ', '')
-        
-        if clean_choice not in all_cols:
-             if choice != 'Done Selecting':
-                 await update.message.reply_text("⚠️ Invalid variable.")
-                 return ACTION
-        else:
-             if clean_choice not in context.user_data['tabulation_vars']:
+        if clean_choice in all_cols:
+             if clean_choice in context.user_data['tabulation_vars']:
+                 context.user_data['tabulation_vars'].remove(clean_choice)
+             else:
                  context.user_data['tabulation_vars'].append(clean_choice)
+        elif choice != 'Done Selecting':
+             await update.message.reply_text("⚠️ Invalid variable.")
+             return ACTION
         
         selected = context.user_data['tabulation_vars']
         markup = get_column_markup(all_cols, extra_buttons=['Done Selecting'], selected_items=selected)
@@ -1539,7 +1424,9 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
              return ACTION
              
         if 'freq_vars' not in context.user_data: context.user_data['freq_vars'] = []
-        if clean not in context.user_data['freq_vars']:
+        if clean in context.user_data['freq_vars']:
+             context.user_data['freq_vars'].remove(clean)
+        else:
              context.user_data['freq_vars'].append(clean)
              
         # Re-show keyboard
@@ -1591,7 +1478,9 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if 'crosstab_row_vars' not in context.user_data:
             context.user_data['crosstab_row_vars'] = []
         
-        if clean_choice not in context.user_data['crosstab_row_vars']:
+        if clean_choice in context.user_data['crosstab_row_vars']:
+            context.user_data['crosstab_row_vars'].remove(clean_choice)
+        else:
             context.user_data['crosstab_row_vars'].append(clean_choice)
         
         # For simple mode, move directly to column selection
@@ -2541,29 +2430,18 @@ async def manuscript_review_handler(update: Update, context: ContextTypes.DEFAUL
     return MANUSCRIPT_REVIEW
 
 
-
-
-
 async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Enhanced visual handler with full chart support and navigation."""
     choice = update.message.text
     file_path = context.user_data.get('file_path')
-    df, _ = FileManager.load_file(file_path)
-    num_cols = context.user_data.get('num_cols', [])
-    all_cols = context.user_data.get('columns', [])
     
-    # Navigation buttons
-    nav_buttons = [['◀️ Back', '🏠 Main Menu', '💾 Save']]
-    
-    async def show_visual_menu(msg=""):
-        # Get current settings for display
-        config = context.user_data.get('visual_config', Visualizer.DEFAULT_CONFIG.copy())
-        settings_summary = f"🎨 {config.get('palette', 'viridis')} | 📏 {config.get('size', 'medium')} | 🖌️ {config.get('style', 'whitegrid')}"
-        
-        text = f"{msg}\n\n**Current Settings:** {settings_summary}\n\n📊 **Create Visuals**\nSelect a chart type or change settings:" if msg else f"**Current Settings:** {settings_summary}\n\n📊 **Create Visuals**\nSelect a chart type or change settings:"
-        
+    if not file_path:
+        await update.message.reply_text("❌ No data file loaded. Please upload a file first.")
+        return UPLOAD
+
+    # Helper function to show visual menu
+    async def show_visual_menu(msg="Select a chart type:"):
         await update.message.reply_text(
-            text,
+            f"📊 **Create Visuals**\n{msg}",
             parse_mode='Markdown',
             reply_markup=ReplyKeyboardMarkup([
                 ['📊 Bar Chart', '📈 Line Chart'],
@@ -2576,37 +2454,42 @@ async def visual_select_handler(update: Update, context: ContextTypes.DEFAULT_TY
         )
         return VISUAL_SELECT
 
-    async def show_var_select(prompt, cols, include_back=True):
-        keyboard = [[c] for c in cols[:10]]
-        if include_back:
-            keyboard.append(['◀️ Back'])
-        await update.message.reply_text(
-            prompt,
-            parse_mode='Markdown',
-            reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
-        )
+    # Helper function to show variable selection
+    async def show_var_select(msg, columns):
+        if not columns:
+            return await show_visual_menu("⚠️ No suitable columns found for this chart type.")
+            
+        markup = get_column_markup(columns, back_label='◀️ Back')
+        await update.message.reply_text(msg, reply_markup=markup)
         return VISUAL_SELECT
-    
-    # Navigation handlers
-    if choice == '◀️ Back to Menu' or choice == '🏠 Main Menu':
-        context.user_data['visual_type'] = None
-        context.user_data['visual_step'] = None
-        # Clean temp states
-        keys_to_remove = ['visual_setting_mode']
-        for k in keys_to_remove:
-            if k in context.user_data: del context.user_data[k]
+
+    # --- ENTRY BUTTON CHECK ---
+    # Catch both emoji and non-emoji versions to prevent fallthrough to AI chat
+    if choice in ['🎨 Visuals', 'Visuals', '🎨 Create Visuals', 'Create Visuals']:
+        return await show_visual_menu()
+
+    if choice == '◀️ Back to Menu':
         await show_action_menu(update)
         return ACTION
-    
+
     if choice == '◀️ Back':
+        context.user_data['visual_type'] = None
         context.user_data['visual_step'] = None
         context.user_data['visual_setting_mode'] = None
         return await show_visual_menu()
-    
-    if choice == '💾 Save':
-        return await save_and_exit_handler(update, context)
 
-    # --- SETTINGS MENU HANDLERS ---
+    try:
+        from src.core.file_manager import FileManager
+        from src.core.visualizer import Visualizer
+        df, _ = FileManager.load_file(file_path)
+    except Exception as e:
+        logger.error(f"Error loading file in visual_select_handler: {e}")
+        await update.message.reply_text("❌ Error loading data file.")
+        return ACTION
+
+    num_cols = list(df.select_dtypes(include=['number']).columns)
+    all_cols = list(df.columns)
+
     if choice == '🎨 Chart Settings':
         await update.message.reply_text(
             "🎨 **Visual Output Settings**\n\nWhat would you like to customize?",
