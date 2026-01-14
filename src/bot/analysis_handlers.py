@@ -132,9 +132,18 @@ async def guide_confirm_handler(update: Update, context: ContextTypes.DEFAULT_TY
         )
         return ACTION
     elif test_key == 'regression':
+        from src.bot.analysis_utils import ANALYSIS_GUIDE
+        guide = ANALYSIS_GUIDE.get('regression', {})
+        types = guide.get('types', {})
+        
+        msg = "📉 **Regression Analysis**\n\n"
+        msg += "Select a model type to see specifics:\n\n"
+        for k, v in types.items():
+            msg += f"• **{v['name']}**: {v['desc']}\n"
+            msg += f"  (Requires: `{v['vars']}`)\n\n"
+            
         await update.message.reply_text(
-            "**Regression Analysis**\n\n"
-            "Select regression type:",
+            msg,
             parse_mode='Markdown',
             reply_markup=ReplyKeyboardMarkup([
                 ['Linear Regression', 'Logistic Regression'],
@@ -254,8 +263,11 @@ async def guide_confirm_handler(update: Update, context: ContextTypes.DEFAULT_TY
             except Exception as e:
                 pass  # Silently continue if export fails
     
+            context.user_data['ai_chat_mode'] = True
             await update.message.reply_text(
-                "✅ Done! What would you like to do next?", 
+                "✅ **Analysis Complete!**\n\n"
+                "💬 **AI Mode is now active.** You can ask me follow-up questions about these statistics directly!\n\n"
+                "What would you like to do next?", 
                 reply_markup=ReplyKeyboardMarkup([
                     ['📉 Describe & Explore', '🆚 Hypothesis Tests'],
                     ['🔗 Relationships & Models', '◀️ Back to Menu']

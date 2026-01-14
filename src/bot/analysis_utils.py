@@ -27,9 +27,25 @@ ANALYSIS_GUIDE = {
     },
     'regression': {
         'name': 'Regression Analysis',
-        'description': 'Predicts a dependent variable based on one or more independent predictor variables. Supports both Linear and Logistic models.',
-        'variables': 'Numeric outcome (Linear) or Binary outcome (Logistic) + 1 or more Predictors.',
-        'use_case': 'Predicting house prices (Linear) or predicting "Success/Failure" (Logistic) with Odds Ratios.'
+        'description': 'Predicts a dependent variable based on one or more independent predictor variables.',
+        'types': {
+            'linear': {
+                'name': 'Linear Regression',
+                'desc': 'Predicts a continuous numeric outcome.',
+                'vars': '1 Numeric DV + 1+ Numeric IVs'
+            },
+            'logistic': {
+                'name': 'Logistic Regression',
+                'desc': 'Predicts binary (Yes/No) outcomes using Odds Ratios.',
+                'vars': '1 Binary DV + 1+ Numeric/Categorical IVs'
+            },
+            'multiple': {
+                'name': 'Multiple Regression',
+                'desc': 'Linear regression with multiple predictors.',
+                'vars': '1 Numeric DV + 2+ Numeric IVs'
+            }
+        },
+        'use_case': 'Predicting house prices (Linear) or success probability (Logistic).'
     },
     'crosstab': {
         'name': 'Crosstab (Chi-Square)',

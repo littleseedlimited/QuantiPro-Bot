@@ -883,18 +883,24 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Handle Regression Analysis
     elif choice in ['📉 Regression', 'Regression']:
-        all_cols = context.user_data.get('columns', [])
-        num_cols = context.user_data.get('num_cols', [])
+        from src.bot.analysis_utils import ANALYSIS_GUIDE
+        guide = ANALYSIS_GUIDE.get('regression', {})
+        types = guide.get('types', {})
         
+        msg = "📉 **Regression Analysis**\n\n"
+        msg += "Select a model type to see specifics:\n\n"
+        for k, v in types.items():
+            msg += f"• **{v['name']}**: {v['desc']}\n"
+            msg += f"  (Requires: `{v['vars']}`)\n\n"
+            
         await update.message.reply_text(
-            "**Regression Analysis**\n\n"
-            "Select regression type:",
+            msg,
             parse_mode='Markdown',
             reply_markup=ReplyKeyboardMarkup([
                 ['Linear Regression', 'Logistic Regression'],
                 ['Multiple Regression'],
                 ['Back to Menu']
-            ], one_time_keyboard=True)
+            ], one_time_keyboard=True, resize_keyboard=True)
         )
         context.user_data['awaiting_regression_type'] = True
         return ACTION
@@ -992,41 +998,35 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         output += f"📈 Pseudo R2: {result.get('pseudo_r2', 0):.4f}\n"
                         output += f"📉 AIC: {result.get('aic', 0):.2f}\n\n"
                         
-                        # OR Summary Table
-                        output += "```\n"
-                        output += f"{'Var':<10} {'COR (95% CI)':<18} {'AOR (95% CI)':<18} {'p-adj':<6}\n"
-                        output += "-" * 55 + "\n"
-                        
+                        # OR Summary Table - Sleeker
+                        from tabulate import tabulate
+                        table_data = []
                         for row in result['or_results']:
-                            var = str(row['Variable'])[:10]
-                            cor = f"{row['COR']:.2f}"
-                            cor_ci = f"({row['COR_CI'][0]:.1f}-{row['COR_CI'][1]:.1f})"
-                            
-                            aor = f"{row['AOR']:.2f}"
-                            aor_ci = f"({row['AOR_CI'][0]:.1f}-{row['AOR_CI'][1]:.1f})"
-                            
-                            p_adj = row['P_Adjusted']
-                            sig = "*" if p_adj < 0.05 else " "
-                            p_str = f"{p_adj:.3f}{sig}"
-                            
-                            output += f"{var:<10} {cor:<4} {cor_ci:<13} {aor:<4} {aor_ci:<13} {p_str:<6}\n"
-                        output += "```\n\\* p < 0.05\n(COR=Crude, AOR=Adjusted Odds Ratio)"
+                            table_data.append([
+                                str(row['Variable'])[:10],
+                                f"{row['COR']:.2f}",
+                                f"{row['AOR']:.2f}{'*' if row['P_Adjusted'] < 0.05 else ''}"
+                            ])
+                        
+                        table_str = tabulate(table_data, headers=['Var', 'COR', 'AOR*'], tablefmt='psql')
+                        output += f"```\n{table_str}\n```\n* p < 0.05 | COR=Crude, AOR=Adjusted"
                     else:
                         output += f"📈 R-squared: {result.get('r_squared', 0):.4f}\n\n"
-                        output += "```\n"
-                        output += f"{'Variable':<15} {'Coef':<10} {'p-value':<10}\n"
-                        output += "-" * 35 + "\n"
-                        
+                        from tabulate import tabulate
+                        table_data = []
                         params = result.get('params', {})
                         pvals = result.get('pvalues', {})
-                        
                         for var in params:
-                            coef = params[var]
-                            pval = pvals.get(var, 'N/A')
+                            pval = pvals.get(var, 1.0)
                             sig = "*" if isinstance(pval, (float, np.float64)) and pval < 0.05 else ""
-                            p_val_disp = f"{pval:.4f}" if isinstance(pval, (float, np.float64)) else str(pval)
-                            output += f"{str(var)[:15]:<15} {coef:<10.4f} {p_val_disp:<10}{sig}\n"
-                        output += "```\n\\* p < 0.05"
+                            table_data.append([
+                                str(var)[:15],
+                                f"{params[var]:.4f}",
+                                f"{pval:.4f}{sig}"
+                            ])
+                        
+                        table_str = tabulate(table_data, headers=['Variable', 'Coef', 'p-value'], tablefmt='psql')
+                        output += f"```\n{table_str}\n```\n* p < 0.05"
                     
                     # Store in history
                     if 'analysis_history' not in context.user_data: context.user_data['analysis_history'] = []
@@ -1041,12 +1041,17 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     safe_output = output.replace('_', '\\_')
                     await update.message.reply_text(safe_output, parse_mode='Markdown')
                     
+                    # Enable AI Mode
+                    context.user_data['ai_chat_mode'] = True
+                    
                     # Thinking Ahead: Prompt for AI explanation
                     await update.message.reply_text(
-                        "🔍 **Suggestions: Tips to Consider**\n"
-                        "• You can ask me to explain this model in detail.\n"
-                        "• Ask: 'Which predictor is most significant?'\n"
-                        "• I can help you check for multicollinearity or outliers.",
+                        "💬 **Interactive AI Mode Enabled**\n"
+                        "You can now ask me questions directly about these results!\n\n"
+                        "**Tips to Consider:**\n"
+                        "• 'Which predictor has the strongest effect?'\n"
+                        "• 'Explain the AOR specifically for me.'\n"
+                        "• 'Are there any outliers I should worry about?'",
                         parse_mode='Markdown'
                     )
                     
@@ -1135,6 +1140,12 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     interpreter = AIInterpreter()
                     ai_insight = await interpreter.interpret_results('correlation', {'matrix': r_vals.to_dict(), 'p_values': p_vals.to_dict()})
                     await update.message.reply_text(ai_insight)
+                    
+                    context.user_data['ai_chat_mode'] = True
+                    await update.message.reply_text(
+                        "💬 **AI Mode is now active.** You can ask me follow-up questions about these correlations directly!",
+                        parse_mode='Markdown'
+                    )
 
             except Exception as e:
                 await update.message.reply_text(f"⚠️ Error: {str(e)[:100]}")
@@ -1307,7 +1318,13 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 except Exception as e:
                     await update.message.reply_text(f"⚠️ Error processing {var}: {e}")
 
-            await show_action_menu(update, "✅ Tabulation Complete")
+            context.user_data['ai_chat_mode'] = True
+            await update.message.reply_text(
+                "✅ **Tabulation Complete!**\n\n"
+                "💬 **AI Mode is now active.** You can ask me follow-up questions about these frequencies directly!",
+                parse_mode='Markdown'
+            )
+            await show_action_menu(update)
             return ACTION
 
         # Variable Selection Logic
@@ -1414,7 +1431,13 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                   except Exception as e:
                       await update.message.reply_text(f"⚠️ Error analyzing {var}: {str(e)}")
 
-             await show_action_menu(update, "✅ Analysis Complete!")
+             context.user_data['ai_chat_mode'] = True
+             await update.message.reply_text(
+                 "✅ **Analysis Complete!**\n\n"
+                 "💬 **AI Mode is active.** You can ask me follow-up questions about these frequencies directly!",
+                 parse_mode='Markdown'
+             )
+             await show_action_menu(update)
              return ACTION
         
         # Selection Logic
@@ -1736,8 +1759,12 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         'data': res_hist['counts'].to_dict()
                     })
 
+                context.user_data['ai_chat_mode'] = True
                 await update.message.reply_text(
-                    "✅ Analysis Complete!\n\n📥 Export options:",
+                    "✅ **Analysis Complete!**\n\n"
+                    "💬 **AI Mode is active.** You can ask me follow-up questions about these results directly!\n\n"
+                    "📥 **Export options:**",
+                    parse_mode='Markdown',
                     reply_markup=ReplyKeyboardMarkup([
                         ['📥 Export to Excel', '📥 Export to CSV'],
                         ['◀️ Back to Menu']

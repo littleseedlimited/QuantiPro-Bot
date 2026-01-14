@@ -495,50 +495,31 @@ class Analyzer:
     @staticmethod
     def format_crosstab_mobile(ct_result: Dict[str, Any]) -> str:
         """
-        Format crosstab for mobile-friendly display using markdown tables.
+        Format crosstab for mobile-friendly display using tabulate.
         """
         if "error" in ct_result:
             return f"❌ **Crosstab Error:** {ct_result['error']}"
         
         counts = ct_result["counts"]
-        row_var = ct_result.get('row_var', 'Row')
-        col_var = ct_result.get('col_var', 'Col')
+        row_var = str(ct_result.get('row_var', 'Row'))[:10]
+        col_var = str(ct_result.get('col_var', 'Col'))[:10]
         
         output = f"🎯 **Crosstab: {row_var} × {col_var}**\n"
         output += f"📏 N={ct_result.get('n_observations', 'N/A')}\n\n"
         
-        # Determine what to show (Counts is default)
-        # For simplicity in chat, we prioritize Counts or Row %
-        
-        # Build Markdown Table
         try:
-            # Header
-            cols = [str(c)[:8] for c in counts.columns]
-            header = f"| {row_var[:10]} | " + " | ".join(cols) + " |"
-            sep = "|---|" + "|".join(["---"] * len(cols)) + "|"
+            from tabulate import tabulate
+            # Prepare data for tabulate
+            # Truncate index/columns for mobile
+            display_df = counts.copy()
+            display_df.index = [str(i)[:8] for i in display_df.index]
+            display_df.columns = [str(c)[:6] for c in display_df.columns]
             
-            output += "```\n"
-            output += header + "\n"
-            output += sep + "\n"
-            
-            for idx, row in counts.iterrows():
-                row_label = str(idx)[:10]
-                row_vals = []
-                for col_name in counts.columns:
-                    val = row[col_name]
-                    # If percentages exist, maybe append them? 
-                    # For now just counts to keep it clean, user can export for more
-                    row_vals.append(str(val))
-                
-                output += f"| {row_label} | " + " | ".join(row_vals) + " |\n"
-            
-            output += "```\n"
-
-            # Add percentages summary if requested/available
-            output += "\n*Detailed percentages available in export.*"
-                
+            table = tabulate(display_df, headers='keys', tablefmt='psql')
+            output += f"```\n{table}\n```\n"
+            output += "*Detailed percentages/Chi-Square available in export.*"
         except Exception as e:
-            output += f"\n(Table Error: {e})"
+            output += f"\n(Formatting Error: {e})"
             
         return output
 
