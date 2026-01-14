@@ -761,9 +761,8 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         '📈 Correlation': 'correlation',
         '📉 Regression': 'regression',
         '🎲 Crosstab': 'crosstab',
-        '📊 Tabulation': 'frequencies',
-        '🎨 Visuals': 'visuals',
-        '📉 Regression': 'regression'
+        '📊 Tabulation': 'frequencies'
+        # Note: '🎨 Visuals' intentionally excluded - handled separately below
     }
     
     for icon_label, test_key in analysis_map.items():

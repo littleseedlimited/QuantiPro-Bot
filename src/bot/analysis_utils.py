@@ -28,6 +28,7 @@ ANALYSIS_GUIDE = {
     'regression': {
         'name': 'Regression Analysis',
         'description': 'Predicts a dependent variable based on one or more independent predictor variables.',
+        'variables': 'Numeric outcome (Linear) OR Binary outcome (Logistic) + 1 or more Predictors.',
         'types': {
             'linear': {
                 'name': 'Linear Regression',
