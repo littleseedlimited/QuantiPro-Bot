@@ -881,7 +881,8 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             '🔗 Relationships & Models', '📝 Generate Report',
             '💬 AI Chat', '📁 My Projects', '💾 Save & Exit',
             '👤 My Profile', '💳 Subscription', '❌ Cancel',
-            '◀️ Back to Menu', 'Exit Chat'
+            '◀️ Back to Menu', 'Exit Chat',
+            '📊 Analyse Data (Upload File)', '🔢 Calculate Sample Size'
         ]
         if choice in menu_categories:
             # Let the routing logic below handle it

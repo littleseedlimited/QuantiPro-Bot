@@ -64,6 +64,7 @@ class InterviewManager:
         awaiting_keys = [k for k in context.user_data.keys() if k.startswith('awaiting_')]
         for k in awaiting_keys:
             context.user_data[k] = False
+        context.user_data['ai_chat_mode'] = False # Disable AI mode for guided interview
         context.user_data['selected_corr_vars'] = []
         context.user_data['crosstab_row_vars'] = []
         context.user_data['crosstab_col_vars'] = []
