@@ -85,14 +85,14 @@ async def guide_confirm_handler(update: Update, context: ContextTypes.DEFAULT_TY
     if not test_key:
         return ACTION
 
-    # Ensure DF is loaded
+    # Ensure DF is loaded locally (avoiding persistent storage in context.user_data to prevent OOM)
     df = context.user_data.get('df')
     if df is None:
         file_path = context.user_data.get('file_path')
         if file_path:
             try:
                 df = FileManager.get_active_dataframe(file_path)
-                context.user_data['df'] = df
+                # DO NOT store in context.user_data['df'] here to keep session small
             except Exception:
                 pass
         
@@ -272,12 +272,15 @@ async def guide_confirm_handler(update: Update, context: ContextTypes.DEFAULT_TY
     
             context.user_data['ai_chat_mode'] = True
             await update.message.reply_text(
-                "✅ **Analysis Complete!**\n\n"
-                "💬 **AI Mode is now active.** You can ask me follow-up questions about these statistics directly!\n\n"
-                "What would you like to do next?", 
+                "✅ **Descriptive Statistics Complete!**\n\n"
+                "💬 **Interactive AI Mode is active.**\n"
+                "I've analyzed the distribution, central tendency, and dispersion of your data.\n\n"
+                "**What would you like to do next?**", 
+                parse_mode='Markdown',
                 reply_markup=ReplyKeyboardMarkup([
                     ['📉 Describe & Explore', '🆚 Hypothesis Tests'],
-                    ['🔗 Relationships & Models', '◀️ Back to Menu']
+                    ['🔗 Relationships & Models', '📁 My Projects'],
+                    ['◀️ Back to Menu']
                 ], one_time_keyboard=True, resize_keyboard=True)
             )
             return ACTION
@@ -307,8 +310,15 @@ async def start_reliability(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Entry: Reliability Analysis."""
     df = context.user_data.get('df')
     if df is None:
-        await update.message.reply_text("❌ No data loaded.")
-        return ConversationHandler.END
+        file_path = context.user_data.get('file_path')
+        if file_path:
+            df = FileManager.get_active_dataframe(file_path)
+            
+    if df is None:
+        from src.bot.handlers import show_action_menu
+        await update.message.reply_text("⚠️ Dataset session lost. Please upload file again.")
+        await show_action_menu(update)
+        return ACTION
         
     context.user_data['rel_items'] = []
     
@@ -359,6 +369,9 @@ async def test_select_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def group_var_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     col = update.message.text
     df = context.user_data.get('df')
+    if df is None:
+        file_path = context.user_data.get('file_path')
+        if file_path: df = FileManager.get_active_dataframe(file_path)
     
     if col == '◀️ Back to Menu': return ConversationHandler.END
     if col not in df.columns:
@@ -387,6 +400,9 @@ async def group_var_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def test_var_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     col = update.message.text
     df = context.user_data.get('df')
+    if df is None:
+        file_path = context.user_data.get('file_path')
+        if file_path: df = FileManager.get_active_dataframe(file_path)
     
     if col == '◀️ Back to Menu': return ConversationHandler.END
     if col not in df.columns: return VAR_SELECT_TEST
@@ -456,6 +472,9 @@ async def test_var_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def anova_factor_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     col = update.message.text
     df = context.user_data.get('df')
+    if df is None:
+        file_path = context.user_data.get('file_path')
+        if file_path: df = FileManager.get_active_dataframe(file_path)
     
     if col == '◀️ Back to Menu': return ConversationHandler.END
     if col not in df.columns: return ANOVA_SELECT_FACTOR
@@ -475,6 +494,9 @@ async def anova_factor_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 async def anova_dv_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     col = update.message.text
     df = context.user_data.get('df')
+    if df is None:
+        file_path = context.user_data.get('file_path')
+        if file_path: df = FileManager.get_active_dataframe(file_path)
     
     if col not in df.columns: return ANOVA_SELECT_DV
     
@@ -531,6 +553,9 @@ async def anova_dv_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def reliability_select_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     df = context.user_data.get('df')
+    if df is None:
+        file_path = context.user_data.get('file_path')
+        if file_path: df = FileManager.get_active_dataframe(file_path)
     selected = context.user_data.get('rel_items', [])
     
     if text == '◀️ Cancel': return ConversationHandler.END

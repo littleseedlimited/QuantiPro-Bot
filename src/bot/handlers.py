@@ -327,7 +327,8 @@ async def file_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['analysis_history'] = []
         context.user_data['visuals_history'] = []
         
-        context.user_data['df'] = df # Store DataFrame in session
+        # No longer storing df in context.user_data to prevent OOM
+        # context.user_data['df'] = df 
         context.user_data['columns'] = list(df.columns)
         context.user_data['num_cols'] = df.select_dtypes(include=['number']).columns.tolist()
 
@@ -369,7 +370,14 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
          
     choice = update.message.text
     file_path = context.user_data.get('file_path')
+    
+    # Standardized memory-safe data loading (reload from disk if needed, avoid persistent session storage)
     df = context.user_data.get('df')
+    if df is None and file_path:
+        try:
+            df = FileManager.get_active_dataframe(file_path)
+        except Exception as e:
+            logger.error(f"Failed to reload data for action: {e}")
 
     # --- HANDLE PROJECT RENAME ---
     if context.user_data.get('awaiting_rename'):
@@ -409,22 +417,32 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         elif choice == 'No, Proceed':
             # Show Dataset Description & Main Menu
-            if df is not None:
-                # Create a readable summary
-                num_vars = len(df.select_dtypes(include='number').columns)
-                cat_vars = len(df.select_dtypes(exclude='number').columns)
-                
-                desc = f"📊 **Dataset Overview**\n"
-                desc += f"• **Rows**: {len(df):,}\n"
-                desc += f"• **Columns**: {len(df.columns)}\n"
-                desc += f"• **Numeric Vars**: {num_vars}\n"
-                desc += f"• **Categorical Vars**: {cat_vars}\n\n"
-                desc += "**Top Variables:**\n"
-                for col in df.columns[:5]:
-                    dtype = str(df[col].dtype)
-                    desc += f"- `{col}` ({dtype})\n"
-                
-                await update.message.reply_text(desc, parse_mode='Markdown')
+            if file_path:
+                try:
+                    df = FileManager.get_active_dataframe(file_path)
+                    if df is not None:
+                        num_vars = len(df.select_dtypes(include='number').columns)
+                        cat_vars = len(df.select_dtypes(exclude='number').columns)
+                        
+                        desc = f"📊 **Dataset Overview**\n"
+                        desc += f"📏 **Total Rows**: {len(df):,}\n"
+                        desc += f"📐 **Total Columns**: {len(df.columns)}\n\n"
+                        
+                        from tabulate import tabulate
+                        table_data = [
+                            ["🔢 Numeric", f"{num_vars}"],
+                            ["🔠 Categorical", f"{cat_vars}"]
+                        ]
+                        
+                        desc += f"```\n{tabulate(table_data, headers=['Variable Type', 'Count'], tablefmt='psql')}\n```\n"
+                        desc += "**Top 5 Variables:**\n"
+                        for col in df.columns[:5]:
+                            dtype = str(df[col].dtype)
+                            desc += f"- `{col}` ({dtype})\n"
+                        
+                        await update.message.reply_text(desc, parse_mode='Markdown')
+                except Exception as e:
+                    logger.error(f"Error showing overview: {e}")
             
             await show_action_menu(update)
             return ACTION
