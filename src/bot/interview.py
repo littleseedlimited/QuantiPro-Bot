@@ -236,17 +236,26 @@ class InterviewManager:
             from src.bot.sampling_handlers import start_sampling
             return await start_sampling(update, context)
             
+        return await InterviewManager.prompt_analysis_goal(update, context)
+
+    @staticmethod
+    async def prompt_analysis_goal(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Asks the user what they want to do after metadata and file are ready."""
+        # Ensure we are in a clean state for analysis
+        from src.bot.constants import GOAL_SELECT
+        
         await update.message.reply_text(
-            f"Perfect. Metadata captured.\nHypothesis: _{choice}_\n\n"
-            "Now, **what is your Analysis Goal?**",
+            "📍 **Guided Study Assistant**\n\n"
+            "I've captured your study details and loaded your data. "
+            "Now, based on your objectives, **what is your Analysis Goal?**",
             parse_mode='Markdown',
             reply_markup=ReplyKeyboardMarkup([
                 ['Compare Groups'],
                 ['Find Relationships (Correlate)'],
                 ['Predict Outcome (Regression)'],
                 ['Reliability Analysis'],
-                ['Cancel']
-            ], one_time_keyboard=True)
+                ['🏠 Main Menu']
+            ], one_time_keyboard=True, resize_keyboard=True)
         )
         return GOAL_SELECT
 

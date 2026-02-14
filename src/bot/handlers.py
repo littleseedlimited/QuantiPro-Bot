@@ -88,12 +88,15 @@ async def show_action_menu(update: Update, message_prefix: str = "", context=Non
     
     web_app_url = os.getenv("MINIAPP_URL", "https://tomoko-pericarditic-regretfully.ngrok-free.dev/app")
     
+    # Dynamic button label to avoid confusion
+    analysis_label = "🚀 New Study (Reset)" if context.user_data.get('file_path') else "📊 Analyse Data (Upload File)"
+    
     await message.reply_text(
         menu_text,
         parse_mode='Markdown',
         reply_markup=ReplyKeyboardMarkup([
             [KeyboardButton("🚀 Open Mini App", web_app=WebAppInfo(url=web_app_url))],
-            ['📊 Analyse Data (Upload File)', '🔢 Calculate Sample Size'],
+            [analysis_label, '🔢 Calculate Sample Size'],
             ['📉 Describe & Explore', '🆚 Hypothesis Tests'],
             ['🔗 Relationships & Models', '📝 Generate Report'],
             ['💬 AI Chat', '📁 My Projects'],
@@ -445,11 +448,18 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 except Exception as e:
                     logger.error(f"Error showing overview: {e}")
             
+            # --- AUTO-CONTINUE INTERVIEW FLOW ---
+            if context.user_data.get('next_step') == 'upload':
+                # Reset next_step to prevent loops and proceed to analysis goal
+                context.user_data['next_step'] = None
+                from src.bot.interview import InterviewManager
+                return await InterviewManager.prompt_analysis_goal(update, context)
+            
             await show_action_menu(update)
             return ACTION
 
-    # --- MAIN MENU ROUTING (Pre-File Load) ---
-    if choice == '📊 Analyse Data (Upload File)':
+    # --- MAIN MENU ROUTING (Pre-File Load or Reset) ---
+    if choice in ['📊 Analyse Data (Upload File)', '🚀 New Study (Reset)']:
         # Reset project state for new analysis
         for key in ['research_title', 'research_objectives', 'research_questions', 'research_hypothesis', 'analysis_history', 'visuals_history']:
             context.user_data.pop(key, None)
@@ -883,7 +893,8 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             '💬 AI Chat', '📁 My Projects', '💾 Save & Exit',
             '👤 My Profile', '💳 Subscription', '❌ Cancel',
             '◀️ Back to Menu', 'Exit Chat',
-            '📊 Analyse Data (Upload File)', '🔢 Calculate Sample Size'
+            '📊 Analyse Data (Upload File)', '🔢 Calculate Sample Size',
+            '🚀 New Study (Reset)'
         ]
         if choice in menu_categories:
             # Let the routing logic below handle it
