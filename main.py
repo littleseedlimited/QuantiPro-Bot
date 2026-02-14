@@ -131,7 +131,9 @@ def main():
         persistence = PicklePersistence(filepath=persistence_file)
         print(f"DEBUG: Persistence Loaded from {persistence_file}.")
     except Exception as e:
+        import traceback
         print(f"DEBUG: Persistence Error: {e}")
+        logger.error(f"Persistence loading failed: {e}\n{traceback.format_exc()}")
         persistence = None
 
     print("DEBUG: Building Application...")

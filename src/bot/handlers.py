@@ -327,6 +327,7 @@ async def file_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['analysis_history'] = []
         context.user_data['visuals_history'] = []
         
+        context.user_data['df'] = df # Store DataFrame in session
         context.user_data['columns'] = list(df.columns)
         context.user_data['num_cols'] = df.select_dtypes(include=['number']).columns.tolist()
 
@@ -854,31 +855,26 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_action_menu(update)
         return ACTION
     
+    # If AI mode is active, check if the input is a menu button BEFORE delegating to AI
+    if context.user_data.get('ai_chat_mode'):
+        # List of known categories and navigation buttons
+        menu_categories = [
+            '📉 Describe & Explore', '🆚 Hypothesis Tests', 
+            '🔗 Relationships & Models', '📝 Generate Report',
+            '💬 AI Chat', '📁 My Projects', '💾 Save & Exit',
+            '👤 My Profile', '💳 Subscription', '❌ Cancel',
+            '◀️ Back to Menu', 'Exit Chat'
+        ]
+        if choice in menu_categories:
+            # Let the routing logic below handle it
+            context.user_data['ai_chat_mode'] = False
+        else:
+            # Just return and let the global ai_chat_handler at the bottom handle it
+            return await ai_chat_handler(update, context)
+
     # 🎨 Visuals (Emoji-neutral routing)
     if choice in ['🎨 Visuals', 'Visuals', '🎨 Create Visuals', 'Create Visuals']:
         return await visual_select_handler(update, context)
-
-    if choice == 'Interview Mode' or choice == 'Interview Mode (Guided)':
-        return await InterviewManager.start_interview(update, context)
-
-    elif choice == '💬 AI Chat' or choice == 'AI Chat':
-        context.user_data['ai_chat_mode'] = True
-        await update.message.reply_text(
-            "**AI Analysis Chat**\n\n"
-            "Ask me anything about your data! Examples:\n"
-            "- What is the mean age by gender?\n"
-            "- Is there a correlation between X and Y?\n"
-            "- Run a t-test comparing groups\n"
-            "- Summarize my data\n\n"
-            "Type your question or 'Exit Chat' to return:",
-            parse_mode='Markdown',
-            reply_markup=ReplyKeyboardMarkup([['Exit Chat']], one_time_keyboard=True)
-        )
-        return ACTION
-
-    elif context.user_data.get('ai_chat_mode'):
-        # Just return and let the global ai_chat_handler at the bottom handle it
-        return await ai_chat_handler(update, context)
 
     # Handle Regression Analysis
     elif choice in ['📉 Regression', 'Regression']:

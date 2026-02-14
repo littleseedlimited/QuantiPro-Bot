@@ -97,7 +97,14 @@ async def guide_confirm_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 pass
         
     if df is None:
-        await update.message.reply_text("⚠️ Dataset session lost or invalid. Please upload file again.")
+        from src.bot.handlers import show_action_menu
+        await update.message.reply_text(
+            "⚠️ **Dataset Session Lost**\n\n"
+            "The bot lost connection to your uploaded data (this can happen after a restart or long inactivity).\n\n"
+            "💡 **Please upload your file again** to continue your research.",
+            parse_mode='Markdown'
+        )
+        await show_action_menu(update)
         return ACTION
 
     # Route to appropriate starting point based on test
