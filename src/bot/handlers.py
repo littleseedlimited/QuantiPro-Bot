@@ -218,18 +218,7 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not web_app_url:
              web_app_url = "https://tomoko-pericarditic-regretfully.ngrok-free.dev/app"
 
-        await update.message.reply_text(
-            f"👋 **Welcome back, {user.full_name}!**\n\n"
-            "What would you like to do today?",
-            reply_markup=ReplyKeyboardMarkup([
-                [KeyboardButton("🚀 Open Mini App", web_app=WebAppInfo(url=web_app_url))],
-                ['📊 Analyse Data (Upload File)', '🔢 Calculate Sample Size'],
-                ['📁 My Projects', '👤 My Profile'],
-                ['💳 Subscription']
-            ], one_time_keyboard=False, resize_keyboard=True),
-            parse_mode='Markdown'
-        )
-        return ACTION  # We reuse ACTION state to route this initial choice
+        return await show_action_menu(update, f"👋 **Welcome back, {user.full_name}!**\n\nWhat would you like to do today?", context=context)
         
     except Exception as e:
         print(f"!!! CRITICAL ERROR IN START_HANDLER: {e}")
@@ -1976,9 +1965,18 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['awaiting_reference_file'] = True
         return ACTION
 
-    # Fallback: Treat as AI Chat Query if not a menu command
-    # This ensures "seamless AI" integration as requested
-    await ai_chat_handler(update, context)
+    # Fallback: Only treat as AI Chat if mode is explicitly active
+    if context.user_data.get('ai_chat_mode'):
+        return await ai_chat_handler(update, context)
+    
+    # Otherwise, guide the user back to the menu to avoid "interception" confusion
+    await update.message.reply_text(
+        "❓ **Command Not Recognized**\n\n"
+        "I'm currently in menu mode. If you wanted to start a research study, please click the button below.\n\n"
+        "💬 *To chat with me freely, tap **AI Chat** first.*",
+        parse_mode='Markdown'
+    )
+    await show_action_menu(update, context=context)
     
     # Return current state to avoid unintentionally leaving UPLOAD or other specific states
     # We check the ConversationHandler state later, but for now, returning ACTION is safer 
