@@ -62,8 +62,8 @@ class Visualizer:
         if not os.path.exists(plots_dir):
              os.makedirs(plots_dir)
         path = os.path.join(plots_dir, filename)
-        # Use high DPI for better quality
-        plt.savefig(path, bbox_inches='tight', dpi=300)
+        # Use moderate DPI for performance on low-RAM environments
+        plt.savefig(path, bbox_inches='tight', dpi=120)
         plt.close()
         
         # Aggressive GC
@@ -339,7 +339,7 @@ class Visualizer:
         fig_height = max(5, min(18, n_rows * 1.2 + 2))
         
         plt.rcParams['figure.facecolor'] = '#ffffff'
-        fig, ax = plt.subplots(figsize=(fig_width, fig_height), dpi=140)
+        fig, ax = plt.subplots(figsize=(fig_width, fig_height), dpi=120)
         ax.axis('off')
         
         # Professional Colors (Matching user's requested style)

@@ -197,18 +197,21 @@ async def guide_confirm_handler(update: Update, context: ContextTypes.DEFAULT_TY
             # Generate text summary for history (always)
             text_summary = Analyzer.format_stats_mobile(stats)
             
-            # SLEEK OPTION: Generate and send image
-            img_path = Visualizer.create_stats_table_image(stats)
-            
-            if img_path and os.path.exists(img_path):
-                with open(img_path, 'rb') as f:
-                    await update.message.reply_photo(
-                        photo=f,
-                        caption="📊 **Descriptive Statistics Table**",
-                        parse_mode='Markdown'
-                    )
-            else:
-                # Fallback to text if image fails or visuals are disabled
+            try:
+                # SLEEK OPTION: Generate and send image
+                img_path = Visualizer.create_stats_table_image(stats)
+                
+                if img_path and os.path.exists(img_path):
+                    with open(img_path, 'rb') as f:
+                        await update.message.reply_photo(
+                            photo=f,
+                            caption="📊 **Descriptive Statistics Table**",
+                            parse_mode='Markdown'
+                        )
+                else:
+                    await update.message.reply_text(text_summary, parse_mode='Markdown')
+            except Exception as ve:
+                logger.error(f"Failed to generate stats image: {ve}")
                 await update.message.reply_text(text_summary, parse_mode='Markdown')
             
             # Store for history
@@ -229,7 +232,7 @@ async def guide_confirm_handler(update: Update, context: ContextTypes.DEFAULT_TY
             }
             
             # Log visual
-            if img_path:
+            if 'img_path' in locals() and img_path:
                 if 'visuals_history' not in context.user_data:
                     context.user_data['visuals_history'] = []
                 context.user_data['visuals_history'].append({
@@ -248,11 +251,10 @@ async def guide_confirm_handler(update: Update, context: ContextTypes.DEFAULT_TY
             except Exception as e:
                 pass  # Silently skip if AI interpretation fails
     
-            # Store for history (use text_summary, not undefined msg)
-            if 'analysis_history' not in context.user_data: context.user_data['analysis_history'] = []
+            # Store for history accurately
             context.user_data['analysis_history'].append({
                 'test': 'Descriptive Statistics',
-                'vars': ', '.join(stats.index.tolist()),
+                'vars': ', '.join(stats.columns.tolist()),
                 'result': text_summary,
                 'data': stats.to_dict()
             })

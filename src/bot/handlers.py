@@ -93,6 +93,7 @@ async def show_action_menu(update: Update, message_prefix: str = "", context=Non
         parse_mode='Markdown',
         reply_markup=ReplyKeyboardMarkup([
             [KeyboardButton("🚀 Open Mini App", web_app=WebAppInfo(url=web_app_url))],
+            ['📊 Analyse Data (Upload File)', '🔢 Calculate Sample Size'],
             ['📉 Describe & Explore', '🆚 Hypothesis Tests'],
             ['🔗 Relationships & Models', '📝 Generate Report'],
             ['💬 AI Chat', '📁 My Projects'],
