@@ -40,14 +40,15 @@ class InterviewManager:
         """Format variable list with types for display."""
         lines = []
         for i, col in enumerate(df.columns[:max_show], 1):
-            dtype = df[col].dtype
+            # Escape characters for Markdown safety
+            safe_col = col.replace('_', '\\_').replace('*', '\\*').replace('`', "'")
+            var_type = "📊 Other"
             if dtype == 'object':
                 var_type = "📝 Text"
             elif 'int' in str(dtype) or 'float' in str(dtype):
                 var_type = "🔢 Numeric"
-            else:
-                var_type = "📊 Other"
-            lines.append(f"{i}. {col} ({var_type})")
+            
+            lines.append(f"{i}. {safe_col} ({var_type})")
         
         if len(df.columns) > max_show:
             lines.append(f"... and {len(df.columns) - max_show} more")
@@ -236,26 +237,17 @@ class InterviewManager:
             from src.bot.sampling_handlers import start_sampling
             return await start_sampling(update, context)
             
-        return await InterviewManager.prompt_analysis_goal(update, context)
-
-    @staticmethod
-    async def prompt_analysis_goal(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Asks the user what they want to do after metadata and file are ready."""
-        # Ensure we are in a clean state for analysis
-        from src.bot.constants import GOAL_SELECT
-        
         await update.message.reply_text(
-            "📍 **Guided Study Assistant**\n\n"
-            "I've captured your study details and loaded your data. "
-            "Now, based on your objectives, **what is your Analysis Goal?**",
+            f"Perfect. Metadata captured.\nHypothesis: _{choice}_\n\n"
+            "Now, **what is your Analysis Goal?**",
             parse_mode='Markdown',
             reply_markup=ReplyKeyboardMarkup([
                 ['Compare Groups'],
                 ['Find Relationships (Correlate)'],
                 ['Predict Outcome (Regression)'],
                 ['Reliability Analysis'],
-                ['🏠 Main Menu']
-            ], one_time_keyboard=True, resize_keyboard=True)
+                ['Cancel']
+            ], one_time_keyboard=True)
         )
         return GOAL_SELECT
 
