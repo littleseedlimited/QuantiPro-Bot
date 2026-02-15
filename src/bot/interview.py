@@ -330,8 +330,9 @@ class InterviewManager:
 
             
         else:
-            await update.message.reply_text("Goal not understood.")
-            return ConversationHandler.END
+            from src.bot.handlers import show_action_menu, ACTION
+            await show_action_menu(update, "❓ **Goal not recognized.** Please select an option from the menu below:")
+            return ACTION
 
     @staticmethod
     async def handle_var1(update: Update, context: ContextTypes.DEFAULT_TYPE):

@@ -88,6 +88,7 @@ async def show_action_menu(update: Update, message_prefix: str = "", context=Non
     
     web_app_url = os.getenv("MINIAPP_URL", "https://tomoko-pericarditic-regretfully.ngrok-free.dev/app")
     
+    from src.bot.constants import ACTION
     await message.reply_text(
         menu_text,
         parse_mode='Markdown',
@@ -101,6 +102,7 @@ async def show_action_menu(update: Update, message_prefix: str = "", context=Non
             ['💳 Subscription', '❌ Cancel']
         ], one_time_keyboard=False, resize_keyboard=True)
     )
+    return ACTION
 
 def get_column_markup(cols, max_cols=30, back_label='◀️ Back to Menu', extra_buttons=None, selected_items=None):
     """Helper to create a limited variable selection keyboard to avoid Telegram limits."""
@@ -438,7 +440,7 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return ACTION
 
     # --- MAIN MENU ROUTING (Pre-File Load or Reset) ---
-    if choice in ['📊 Analyse Data (Upload File)', '🚀 New Study (Reset)']:
+    if choice == '📊 Analyse Data (Upload File)':
         # Reset project state for new analysis
         for key in ['research_title', 'research_objectives', 'research_questions', 'research_hypothesis', 'analysis_history', 'visuals_history']:
             context.user_data.pop(key, None)
@@ -872,8 +874,7 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             '💬 AI Chat', '📁 My Projects', '💾 Save & Exit',
             '👤 My Profile', '💳 Subscription', '❌ Cancel',
             '◀️ Back to Menu', 'Exit Chat',
-            '📊 Analyse Data (Upload File)', '🔢 Calculate Sample Size',
-            '🚀 New Study (Reset)'
+            '📊 Analyse Data (Upload File)', '🔢 Calculate Sample Size'
         ]
         if choice in menu_categories:
             # Let the routing logic below handle it
