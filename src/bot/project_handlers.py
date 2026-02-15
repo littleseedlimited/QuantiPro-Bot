@@ -11,6 +11,11 @@ import os
 import html
 import pandas as pd
 
+def escape_md(text):
+    """Escape characters for Telegram Markdown (V1)."""
+    if not text: return ""
+    return str(text).replace('_', '\\_').replace('*', '\\*').replace('`', "'")
+
 def clean_for_json(obj):
     """Recursively convert pandas objects to JSON serializable types."""
     if isinstance(obj, pd.DataFrame):
@@ -132,7 +137,7 @@ async def save_current_project(update: Update, context: ContextTypes.DEFAULT_TYP
     
     await update.message.reply_text(
         f"💾 **Project Saved!**\n\n"
-        f"📄 Title: _{research_title or 'Untitled Analysis'}_\n"
+        f"📄 Title: _{escape_md(research_title or 'Untitled Analysis')}_\n"
         f"🆔 Project ID: `{task_id}`\n\n"
         "You can resume this project anytime from '📁 My Projects'.",
         parse_mode='Markdown',

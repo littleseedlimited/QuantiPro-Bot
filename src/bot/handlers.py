@@ -28,6 +28,13 @@ DATA_DIR = os.getenv("DATA_DIR", "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
 
+# Helper: Escape characters for Telegram Markdown (V1)
+def escape_md(text):
+    if not text: return ""
+    # Specifically escape underscores which are most common in variable names
+    # also escape asterisks and backticks
+    return str(text).replace('_', '\\_').replace('*', '\\*').replace('`', "'")
+
 # Feature enforcement helper
 async def check_feature(update: Update, user_id: int, feature: str, feature_label: str = None) -> bool:
     """
@@ -81,7 +88,7 @@ async def check_feature_limit(update: Update, user_id: int, feature: str, curren
 
 # Helper: Show action menu with navigation
 async def show_action_menu(update: Update, message_prefix: str = "", context=None):
-    menu_text = f"{message_prefix}\n\n**Main Menu - Select a Category:**" if message_prefix else "**Main Menu - Select a Category:**"
+    menu_text = message_prefix if message_prefix else "**Main Menu - Select a Category:**"
     
     # Use effective_message for both regular messages and callback queries
     message = update.effective_message
@@ -927,7 +934,7 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         markup = get_column_markup(cols_to_show, back_label='Back to Menu')
         
         await update.message.reply_text(
-            f"**{choice}**\n\n"
+            f"**{escape_md(choice)}**\n\n"
             "Select the DEPENDENT variable (outcome):",
             parse_mode='Markdown',
             reply_markup=markup
@@ -951,7 +958,7 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         markup = get_column_markup(all_cols, back_label='Back to Menu', extra_buttons=['Done Selecting'])
         
         await update.message.reply_text(
-            f"Dependent: {choice}\n\n"
+            f"Dependent: {escape_md(choice)}\n\n"
             "Select INDEPENDENT variable(s):\n"
             "Tap each variable, then 'Done Selecting'",
             parse_mode='Markdown',
@@ -1226,7 +1233,7 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         markup = get_column_markup(all_cols, extra_buttons=['✅ Done Selecting'])
         
         await update.message.reply_text(
-            f"✅ Mode: **{choice}**\n\n"
+            f"✅ Mode: **{escape_md(choice)}**\n\n"
             "Select the **ROW** variable(s):\n"
             "_For multiple, select one at a time then tap 'Done'_",
             parse_mode='Markdown',
@@ -1521,7 +1528,7 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             markup = get_column_markup(all_cols)
             
             await update.message.reply_text(
-                f"✅ Row: **{choice}**\n\n"
+                f"✅ Row: **{escape_md(choice)}**\n\n"
                 "Now select the **COLUMN** variable:",
                 parse_mode='Markdown',
                 reply_markup=markup
@@ -1536,8 +1543,9 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         selected = context.user_data.get('crosstab_row_vars', [])
         markup = get_column_markup(all_cols, extra_buttons=['✅ Done Selecting'])
         
+        safe_selected = [escape_md(s) for s in selected]
         await update.message.reply_text(
-            f"✅ Selected: **{', '.join(selected)}**\n\n"
+            f"✅ Selected: **{', '.join(safe_selected)}**\n\n"
             "Select more or tap 'Done':",
             parse_mode='Markdown',
             reply_markup=markup
@@ -1567,7 +1575,7 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['crosstab_display'] = {'counts': True}  # Counts always on
         
         await update.message.reply_text(
-            f"Row: {row_display} x Col: {col_var}\n\n"
+            f"Row: {escape_md(row_display)} x Col: {escape_md(col_var)}\n\n"
             "**Select display options** (tap to toggle):\n"
             "[x] Counts (always included)\n"
             "[ ] Row %\n"
@@ -1609,7 +1617,7 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             col_var = context.user_data.get('crosstab_col_var')
             
             status = (
-                f"Row: {row_display} x Col: {col_var}\n\n"
+                f"Row: {escape_md(row_display)} x Col: {escape_md(col_var)}\n\n"
                 f"**Current Selection:**\n"
                 f"[x] Counts\n"
                 f"[{'x' if display.get('row_pct') else ' '}] Row %\n"
@@ -1704,7 +1712,7 @@ async def action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             'data': ct_res
                         })
                         
-                        caption = f"📊 **Crosstab: {row_var} × {col_var}**"
+                        caption = f"📊 **Crosstab: {escape_md(row_var)} × {escape_md(col_var)}**"
                         if 'chi2' in ct_res:
                             sig = "✅ Significant" if ct_res['p_val'] < 0.05 else "❌ Not Significant"
                             caption += f"\n\n**Chi-Square:** {ct_res['chi2']:.2f}\n**p-value:** {ct_res['p_val']:.4f}\n**Result:** {sig}"

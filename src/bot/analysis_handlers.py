@@ -6,6 +6,13 @@ from src.core.file_manager import FileManager
 import pandas as pd
 import os
 
+# Helper: Escape characters for Telegram Markdown (V1)
+def escape_md(text):
+    if not text: return ""
+    # Specifically escape underscores which are most common in variable names
+    # also escape asterisks and backticks
+    return str(text).replace('_', '\\_').replace('*', '\\*').replace('`', "'")
+
 from src.bot.constants import (
     TEST_SELECT, VAR_SELECT_GROUP, VAR_SELECT_TEST, ANOVA_SELECT_FACTOR, ANOVA_SELECT_DV, RELIABILITY_SELECT,
     GUIDE_CONFIRM, ACTION
@@ -412,7 +419,7 @@ async def test_var_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     group_col = context.user_data['group_col']
     test_type = context.user_data.get('current_test', 'ttest')
     
-    await update.message.reply_text(f"🔄 Running {test_type} on **{col}** by **{group_col}**...")
+    await update.message.reply_text(f"🔄 Running {test_type} on **{escape_md(col)}** by **{escape_md(group_col)}**...")
     
     if test_type == 'ttest':
         res = Analyzer.run_ttest(df, group_col, col)
@@ -428,8 +435,8 @@ async def test_var_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if test_type == 'ttest':
             msg = (f"✅ **Independent T-Test Results**\n\n"
-                   f"Difference between groups in **{col_lbl}**:\n"
-                   f"Grouping by: **{grp_lbl}**\n"
+                   f"Difference between groups in **{escape_md(col_lbl)}**:\n"
+                   f"Grouping by: **{escape_md(grp_lbl)}**\n"
                    f"Groups: {res['groups']}\n\n"
                    f"**t-value**: {res['t_val']:.3f}\n"
                    f"**p-value**: {res['p_val']:.4f}\n"
@@ -437,7 +444,7 @@ async def test_var_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                    f"{'🌟 SIGNIFICANT difference!' if res['p_val'] < 0.05 else 'Outcome: No significant difference.'}")
         else:
              msg = (f"✅ **Mann-Whitney U Results**\n\n"
-                    f"Variable: **{col_lbl}** by **{grp_lbl}**\n"
+                    f"Variable: **{escape_md(col_lbl)}** by **{escape_md(grp_lbl)}**\n"
                     f"**U-val**: {res['U-val']}\n"
                     f"**p-val**: {res['p-val']:.4f}\n"
                     f"{'🌟 SIGNIFICANT' if res['p-val'] < 0.05 else 'Not Significant'}")
@@ -503,7 +510,7 @@ async def anova_dv_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if col not in df.columns: return ANOVA_SELECT_DV
     
     factor = context.user_data['anova_factor']
-    await update.message.reply_text(f"🔄 Running One-Way ANOVA: **{col} ~ {factor}**...")
+    await update.message.reply_text(f"🔄 Running One-Way ANOVA: **{escape_md(col)} ~ {escape_md(factor)}**...")
     
     res_df = Analyzer.run_anova(df, dv=col, between=factor)
     
@@ -517,8 +524,8 @@ async def anova_dv_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         fac_lbl = f"{factor} ({labels.get(factor, '')})" if labels.get(factor) else factor
         
         msg = (f"✅ **ANOVA Results**\n\n"
-               f"Dependent Var: **{dv_lbl}**\n"
-               f"Factor: **{fac_lbl}**\n"
+               f"Dependent Var: **{escape_md(dv_lbl)}**\n"
+               f"Factor: **{escape_md(fac_lbl)}**\n"
                f"**F-value**: {row['F']:.3f}\n"
                f"**p-value**: {row['p-unc']:.4f}\n"
                f"**np2** (Effect Size): {row['np2']:.3f}\n\n"
@@ -581,7 +588,7 @@ async def reliability_select_handler(update: Update, context: ContextTypes.DEFAU
             
             msg = (f"✅ **Reliability Analysis**\n\n"
                    f"Items: {len(selected)}\n"
-                   f"Vars: {', '.join(item_list)}\n"
+                   f"Vars: {', '.join([escape_md(i) for i in item_list])}\n"
                    f"**Cronbach's Alpha**: {res['alpha']:.3f}\n"
                    f"**95% CI**: {res['conf_interval']}\n"
                    f"**Rating**: {res['interpretation']}")
@@ -617,7 +624,7 @@ async def reliability_select_handler(update: Update, context: ContextTypes.DEFAU
             selected.append(text)
             context.user_data['rel_items'] = selected
             await update.message.reply_text(
-                f"Added **{text}**. (Total: {len(selected)})\nSelect more or click Done.",
+                f"Added **{escape_md(text)}**. (Total: {len(selected)})\nSelect more or click Done.",
                 reply_markup=get_reliability_keyboard(df, selected),
                 parse_mode='Markdown'
             )
